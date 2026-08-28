@@ -348,14 +348,6 @@ app.put('/api/tasks/:id', (req, res) => {
   res.json(taskRowToObject(db.prepare('SELECT t.*, s.name AS assignedStation FROM tasks t LEFT JOIN stations s ON t.assigned_station_id = s.id WHERE t.id = ?').get(id)));
 });
 
-app.delete('/api/tasks/:id', (req, res) => {
-  const id = Number(req.params.id);
-  const removed = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
-  if (!removed) return res.status(404).json({ error: 'Task not found' });
-  db.prepare('DELETE FROM tasks WHERE id = ?').run(id);
-  res.json({ success: true, removed: taskRowToObject(removed) });
-});
-
 app.get('/api/incidents', (req, res) => {
   res.json(db.prepare('SELECT * FROM incidents').all().map(incidentRowToObject));
 });
@@ -370,37 +362,6 @@ app.post('/api/incidents', (req, res) => {
   res.status(201).json(incidentRowToObject(db.prepare('SELECT * FROM incidents WHERE id = ?').get(result.lastInsertRowid)));
 });
 
-app.put('/api/incidents/:id', (req, res) => {
-  const id = Number(req.params.id);
-  const existing = db.prepare('SELECT * FROM incidents WHERE id = ?').get(id);
-  if (!existing) return res.status(404).json({ error: 'Incident not found' });
-  const { type, location, date, officers, vehicles, equipment, media, report } = req.body;
-  const officersJson = JSON.stringify(Array.isArray(officers) ? officers : String(officers || existing.officers || '').split(',').map(o => o.trim()).filter(Boolean));
-  const vehiclesJson = JSON.stringify(Array.isArray(vehicles) ? vehicles : String(vehicles || existing.vehicles || '').split(',').map(v => v.trim()).filter(Boolean));
-  const equipmentJson = JSON.stringify(Array.isArray(equipment) ? equipment : String(equipment || existing.equipment || '').split(',').map(e => e.trim()).filter(Boolean));
-  const mediaJson = JSON.stringify(Array.isArray(media) ? media : String(media || existing.media || '').split(',').map(m => m.trim()).filter(Boolean));
-  db.prepare('UPDATE incidents SET type = ?, location = ?, date = ?, officers = ?, vehicles = ?, equipment = ?, media = ?, report = ? WHERE id = ?').run(
-    type || existing.type,
-    location || existing.location,
-    date || existing.date,
-    officersJson,
-    vehiclesJson,
-    equipmentJson,
-    mediaJson,
-    report || existing.report,
-    id
-  );
-  res.json(incidentRowToObject(db.prepare('SELECT * FROM incidents WHERE id = ?').get(id)));
-});
-
-app.delete('/api/incidents/:id', (req, res) => {
-  const id = Number(req.params.id);
-  const removed = db.prepare('SELECT * FROM incidents WHERE id = ?').get(id);
-  if (!removed) return res.status(404).json({ error: 'Incident not found' });
-  db.prepare('DELETE FROM incidents WHERE id = ?').run(id);
-  res.json({ success: true, removed: incidentRowToObject(removed) });
-});
-
 app.get('/api/vehicles', (req, res) => {
   res.json(db.prepare('SELECT * FROM vehicles').all().map(vehicleRowToObject));
 });
@@ -411,67 +372,9 @@ app.post('/api/vehicles', (req, res) => {
   res.status(201).json(vehicleRowToObject(db.prepare('SELECT * FROM vehicles WHERE id = ?').get(result.lastInsertRowid)));
 });
 
-app.put('/api/vehicles/:id', (req, res) => {
-  const id = Number(req.params.id);
-  const existing = db.prepare('SELECT * FROM vehicles WHERE id = ?').get(id);
-  if (!existing) return res.status(404).json({ error: 'Vehicle not found' });
-  const { plate, chassis, engine, model, capacity, fuel, insurance, status, station_id } = req.body;
-  db.prepare('UPDATE vehicles SET plate = ?, chassis = ?, engine = ?, model = ?, capacity = ?, fuel = ?, insurance = ?, status = ?, station_id = ? WHERE id = ?').run(
-    plate || existing.plate,
-    chassis || existing.chassis,
-    engine || existing.engine,
-    model || existing.model,
-    capacity || existing.capacity,
-    fuel || existing.fuel,
-    insurance || existing.insurance,
-    status || existing.status,
-    station_id || existing.station_id,
-    id
-  );
-  res.json(vehicleRowToObject(db.prepare('SELECT * FROM vehicles WHERE id = ?').get(id)));
-});
-
-app.delete('/api/vehicles/:id', (req, res) => {
-  const id = Number(req.params.id);
-  const removed = db.prepare('SELECT * FROM vehicles WHERE id = ?').get(id);
-  if (!removed) return res.status(404).json({ error: 'Vehicle not found' });
-  db.prepare('DELETE FROM vehicles WHERE id = ?').run(id);
-  res.json({ success: true, removed: vehicleRowToObject(removed) });
-});
-
 app.get('/api/equipment', (req, res) => {
   const rows = db.prepare('SELECT e.*, s.name AS stationName FROM equipment e LEFT JOIN stations s ON e.station_id = s.id').all();
   res.json(rows);
-});
-
-app.post('/api/equipment', (req, res) => {
-  const { name, status, station_id } = req.body;
-  const result = db.prepare('INSERT INTO equipment (name, status, station_id) VALUES (?, ?, ?)').run(name, status || 'good', station_id || null);
-  const row = db.prepare('SELECT e.*, s.name AS stationName FROM equipment e LEFT JOIN stations s ON e.station_id = s.id WHERE e.id = ?').get(result.lastInsertRowid);
-  res.status(201).json(row);
-});
-
-app.put('/api/equipment/:id', (req, res) => {
-  const id = Number(req.params.id);
-  const existing = db.prepare('SELECT * FROM equipment WHERE id = ?').get(id);
-  if (!existing) return res.status(404).json({ error: 'Equipment not found' });
-  const { name, status, station_id } = req.body;
-  db.prepare('UPDATE equipment SET name = ?, status = ?, station_id = ? WHERE id = ?').run(
-    name || existing.name,
-    status || existing.status,
-    station_id || existing.station_id,
-    id
-  );
-  const row = db.prepare('SELECT e.*, s.name AS stationName FROM equipment e LEFT JOIN stations s ON e.station_id = s.id WHERE e.id = ?').get(id);
-  res.json(row);
-});
-
-app.delete('/api/equipment/:id', (req, res) => {
-  const id = Number(req.params.id);
-  const removed = db.prepare('SELECT * FROM equipment WHERE id = ?').get(id);
-  if (!removed) return res.status(404).json({ error: 'Equipment not found' });
-  db.prepare('DELETE FROM equipment WHERE id = ?').run(id);
-  res.json({ success: true, removed });
 });
 
 app.get('/api/notifications', (req, res) => {
