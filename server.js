@@ -106,6 +106,14 @@ function initSchema() {
       created_at TEXT,
       user TEXT
     );
+    CREATE TABLE IF NOT EXISTS password_resets (
+      id INTEGER PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      token TEXT UNIQUE NOT NULL,
+      expires_at TEXT NOT NULL,
+      used INTEGER DEFAULT 0,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    );
   `);
 }
 
@@ -235,6 +243,64 @@ app.post('/api/auth/login', (req, res) => {
   res.json(user);
 });
 
+app.post('/api/auth/register', (req, res) => {
+  const { checknumber, password, name } = req.body;
+  if (!checknumber || !password || !name) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+  const existing = db.prepare('SELECT id FROM users WHERE checknumber = ?').get(checknumber);
+  if (existing) {
+    return res.status(409).json({ message: 'User already exists' });
+  }
+  try {
+    const result = db.prepare('INSERT INTO users (checknumber, password, name, role_code, station_id) VALUES (?, ?, ?, ?, ?)').run(checknumber, password, name, 'officer', null);
+    const user = db.prepare('SELECT u.id, u.checknumber, u.name, u.role_code AS roleCode, u.station_id, r.label AS role FROM users u JOIN roles r ON u.role_code = r.code WHERE u.id = ?').get(result.lastInsertRowid);
+    res.status(201).json(user);
+  } catch (error) {
+    res.status(500).json({ message: 'Registration failed' });
+  }
+});
+
+app.post('/api/auth/forgot-password', (req, res) => {
+  const { checknumber } = req.body;
+  if (!checknumber) {
+    return res.status(400).json({ message: 'Checknumber is required' });
+  }
+  const user = db.prepare('SELECT id, checknumber, name FROM users WHERE checknumber = ?').get(checknumber);
+  if (!user) {
+    return res.status(404).json({ message: 'User not found' });
+  }
+  const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  const expiresAt = new Date(Date.now() + 3600000).toISOString();
+  db.prepare('INSERT INTO password_resets (user_id, token, expires_at) VALUES (?, ?, ?)').run(user.id, token, expiresAt);
+  res.json({ 
+    message: 'Password reset token created', 
+    token: token,
+    checknumber: user.checknumber,
+    name: user.name
+  });
+});
+
+app.post('/api/auth/reset-password', (req, res) => {
+  const { token, newPassword } = req.body;
+  if (!token || !newPassword) {
+    return res.status(400).json({ message: 'Token and new password are required' });
+  }
+  const reset = db.prepare('SELECT user_id, expires_at, used FROM password_resets WHERE token = ?').get(token);
+  if (!reset) {
+    return res.status(404).json({ message: 'Invalid reset token' });
+  }
+  if (reset.used) {
+    return res.status(400).json({ message: 'Reset token already used' });
+  }
+  if (new Date(reset.expires_at) < new Date()) {
+    return res.status(400).json({ message: 'Reset token expired' });
+  }
+  db.prepare('UPDATE users SET password = ? WHERE id = ?').run(newPassword, reset.user_id);
+  db.prepare('UPDATE password_resets SET used = 1 WHERE token = ?').run(token);
+  res.json({ message: 'Password reset successful' });
+});
+
 app.post('/api/auth/logout', (req, res) => {
   res.json({ message: 'Logged out' });
 });
@@ -269,6 +335,7 @@ app.get('/api/dashboard', (req, res) => {
   const equipment = db.prepare('SELECT * FROM equipment').all();
   const notifications = db.prepare('SELECT * FROM notifications WHERE active = 1 ORDER BY date DESC').all();
   const shifts = db.prepare('SELECT s.*, st.name AS stationName FROM shifts s LEFT JOIN stations st ON s.station_id = st.id ORDER BY date ASC').all();
+  const feedback = db.prepare('SELECT * FROM feedback ORDER BY created_at DESC').all();
 
   res.json({
     userCount: totalUsers,
@@ -289,7 +356,8 @@ app.get('/api/dashboard', (req, res) => {
     vehicles,
     equipment,
     notifications,
-    shifts
+    shifts,
+    feedback
   });
 });
 
@@ -348,6 +416,14 @@ app.put('/api/tasks/:id', (req, res) => {
   res.json(taskRowToObject(db.prepare('SELECT t.*, s.name AS assignedStation FROM tasks t LEFT JOIN stations s ON t.assigned_station_id = s.id WHERE t.id = ?').get(id)));
 });
 
+app.delete('/api/tasks/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const existing = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'Task not found' });
+  db.prepare('DELETE FROM tasks WHERE id = ?').run(id);
+  res.json(existing);
+});
+
 app.get('/api/incidents', (req, res) => {
   res.json(db.prepare('SELECT * FROM incidents').all().map(incidentRowToObject));
 });
@@ -362,6 +438,27 @@ app.post('/api/incidents', (req, res) => {
   res.status(201).json(incidentRowToObject(db.prepare('SELECT * FROM incidents WHERE id = ?').get(result.lastInsertRowid)));
 });
 
+app.put('/api/incidents/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const existing = db.prepare('SELECT * FROM incidents WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'Incident not found' });
+  const { type, location, date, officers, vehicles, equipment, media, report } = req.body;
+  const officersJson = JSON.stringify(Array.isArray(officers) ? officers : String(officers ?? existing.officers ?? '').split(',').map(o => o.trim()).filter(Boolean));
+  const vehiclesJson = JSON.stringify(Array.isArray(vehicles) ? vehicles : String(vehicles ?? existing.vehicles ?? '').split(',').map(v => v.trim()).filter(Boolean));
+  const equipmentJson = JSON.stringify(Array.isArray(equipment) ? equipment : String(equipment ?? existing.equipment ?? '').split(',').map(e => e.trim()).filter(Boolean));
+  const mediaJson = JSON.stringify(Array.isArray(media) ? media : String(media ?? existing.media ?? '').split(',').map(m => m.trim()).filter(Boolean));
+  db.prepare('UPDATE incidents SET type = ?, location = ?, date = ?, officers = ?, vehicles = ?, equipment = ?, media = ?, report = ? WHERE id = ?').run(type || existing.type, location || existing.location, date || existing.date, officersJson, vehiclesJson, equipmentJson, mediaJson, report ?? existing.report, id);
+  res.json(incidentRowToObject(db.prepare('SELECT * FROM incidents WHERE id = ?').get(id)));
+});
+
+app.delete('/api/incidents/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const existing = db.prepare('SELECT * FROM incidents WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'Incident not found' });
+  db.prepare('DELETE FROM incidents WHERE id = ?').run(id);
+  res.json(existing);
+});
+
 app.get('/api/vehicles', (req, res) => {
   res.json(db.prepare('SELECT * FROM vehicles').all().map(vehicleRowToObject));
 });
@@ -372,9 +469,49 @@ app.post('/api/vehicles', (req, res) => {
   res.status(201).json(vehicleRowToObject(db.prepare('SELECT * FROM vehicles WHERE id = ?').get(result.lastInsertRowid)));
 });
 
+app.put('/api/vehicles/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const existing = db.prepare('SELECT * FROM vehicles WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'Vehicle not found' });
+  const { plate, chassis, engine, model, capacity, fuel, insurance, status, station_id } = req.body;
+  db.prepare('UPDATE vehicles SET plate = ?, chassis = ?, engine = ?, model = ?, capacity = ?, fuel = ?, insurance = ?, status = ?, station_id = ? WHERE id = ?').run(plate || existing.plate, chassis || existing.chassis, engine || existing.engine, model || existing.model, capacity || existing.capacity, fuel || existing.fuel, insurance || existing.insurance, status || existing.status, station_id ?? existing.station_id, id);
+  res.json(vehicleRowToObject(db.prepare('SELECT * FROM vehicles WHERE id = ?').get(id)));
+});
+
+app.delete('/api/vehicles/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const existing = db.prepare('SELECT * FROM vehicles WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'Vehicle not found' });
+  db.prepare('DELETE FROM vehicles WHERE id = ?').run(id);
+  res.json(existing);
+});
+
 app.get('/api/equipment', (req, res) => {
   const rows = db.prepare('SELECT e.*, s.name AS stationName FROM equipment e LEFT JOIN stations s ON e.station_id = s.id').all();
   res.json(rows);
+});
+
+app.post('/api/equipment', (req, res) => {
+  const { name, status, station_id } = req.body;
+  const result = db.prepare('INSERT INTO equipment (name, status, station_id) VALUES (?, ?, ?)').run(name, status || 'good', station_id || null);
+  res.status(201).json(db.prepare('SELECT e.*, s.name AS stationName FROM equipment e LEFT JOIN stations s ON e.station_id = s.id WHERE e.id = ?').get(result.lastInsertRowid));
+});
+
+app.put('/api/equipment/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const existing = db.prepare('SELECT * FROM equipment WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'Equipment not found' });
+  const { name, status, station_id } = req.body;
+  db.prepare('UPDATE equipment SET name = ?, status = ?, station_id = ? WHERE id = ?').run(name || existing.name, status || existing.status, station_id ?? existing.station_id, id);
+  res.json(db.prepare('SELECT e.*, s.name AS stationName FROM equipment e LEFT JOIN stations s ON e.station_id = s.id WHERE e.id = ?').get(id));
+});
+
+app.delete('/api/equipment/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const existing = db.prepare('SELECT * FROM equipment WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'Equipment not found' });
+  db.prepare('DELETE FROM equipment WHERE id = ?').run(id);
+  res.json(existing);
 });
 
 app.get('/api/notifications', (req, res) => {
@@ -385,10 +522,46 @@ app.get('/api/shifts', (req, res) => {
   res.json(db.prepare('SELECT s.*, st.name AS stationName FROM shifts s LEFT JOIN stations st ON s.station_id = st.id ORDER BY date ASC').all());
 });
 
+app.post('/api/shifts', (req, res) => {
+  const { officer, shift_type, station_id, date } = req.body;
+  const result = db.prepare('INSERT INTO shifts (officer, shift_type, station_id, date) VALUES (?, ?, ?, ?)').run(officer, shift_type || 'Morning', station_id || null, date || new Date().toISOString().slice(0, 10));
+  res.status(201).json(db.prepare('SELECT s.*, st.name AS stationName FROM shifts s LEFT JOIN stations st ON s.station_id = st.id WHERE s.id = ?').get(result.lastInsertRowid));
+});
+
+app.put('/api/shifts/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const existing = db.prepare('SELECT * FROM shifts WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'Shift not found' });
+  const { officer, shift_type, station_id, date } = req.body;
+  db.prepare('UPDATE shifts SET officer = ?, shift_type = ?, station_id = ?, date = ? WHERE id = ?').run(officer || existing.officer, shift_type || existing.shift_type, station_id ?? existing.station_id, date || existing.date, id);
+  res.json(db.prepare('SELECT s.*, st.name AS stationName FROM shifts s LEFT JOIN stations st ON s.station_id = st.id WHERE s.id = ?').get(id));
+});
+
+app.delete('/api/shifts/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const existing = db.prepare('SELECT * FROM shifts WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'Shift not found' });
+  db.prepare('DELETE FROM shifts WHERE id = ?').run(id);
+  res.json(existing);
+});
+
 app.post('/api/feedback', (req, res) => {
   const { source, message, createdAt, user } = req.body;
   const result = db.prepare('INSERT INTO feedback (source, message, created_at, user) VALUES (?, ?, ?, ?)').run(source, message, createdAt || new Date().toISOString(), user || 'Guest');
   res.status(201).json({ id: result.lastInsertRowid, source, message, createdAt, user });
+});
+
+app.get('/api/feedback', (req, res) => {
+  const feedback = db.prepare('SELECT * FROM feedback ORDER BY created_at DESC').all();
+  res.json(feedback);
+});
+
+app.delete('/api/feedback/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const feedback = db.prepare('SELECT * FROM feedback WHERE id = ?').get(id);
+  if (!feedback) return res.status(404).json({ error: 'Feedback not found' });
+  db.prepare('DELETE FROM feedback WHERE id = ?').run(id);
+  res.json(feedback);
 });
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));

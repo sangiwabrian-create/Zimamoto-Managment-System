@@ -18,19 +18,56 @@
         </div>
       </div>
       <div class="login-card">
-        <h2>Sign In to Zimamoto Mbeya</h2>
-        <form id="loginForm">
+        <h2 id="authFormTitle">Sign In to Zimamoto Mbeya</h2>
+        
+        <!-- Login Form -->
+        <form id="loginForm" class="auth-form active">
           <label for="checknumberInput">User name</label>
           <input id="checknumberInput" name="User name" type="text" autocomplete="username" required>
           <label for="passwordInput">Password</label>
           <input id="passwordInput" name="password" type="password" autocomplete="current-password" required>
           <div class="login-actions">
             <label class="checkbox-label"><input id="keepLoggedIn" type="checkbox"> Keep me logged in</label>
-            <a href="#" class="secondary-link">Forgot password?</a>
+            <a href="#" id="forgotPasswordLink" class="secondary-link">Forgot password?</a>
           </div>
           <button type="submit" class="primary">Sign In</button>
-          <p class="register-text">Dont have an account? <a href="#" class="secondary-link">Register Here</a></p>
+          <p class="register-text">Dont have an account? <a href="#" id="registerLink" class="secondary-link">Register Here</a></p>
           <div id="loginError" class="notification"></div>
+        </form>
+
+        <!-- Registration Form -->
+        <form id="registerForm" class="auth-form hidden">
+          <label for="registerNameInput">Full Name</label>
+          <input id="registerNameInput" type="text" required>
+          <label for="registerChecknumberInput">User name (Checknumber)</label>
+          <input id="registerChecknumberInput" type="text" required>
+          <label for="registerPasswordInput">Password</label>
+          <input id="registerPasswordInput" type="password" required>
+          <label for="registerPasswordConfirmInput">Confirm Password</label>
+          <input id="registerPasswordConfirmInput" type="password" required>
+          <button type="submit" class="primary">Register</button>
+          <p class="register-text">Already have an account? <a href="#" id="backToLoginLink" class="secondary-link">Sign In</a></p>
+          <div id="registerError" class="notification"></div>
+        </form>
+
+        <!-- Forgot Password Form -->
+        <form id="forgotPasswordForm" class="auth-form hidden">
+          <p>Enter your username/checknumber to receive a password reset code.</p>
+          <label for="forgotChecknumberInput">User name (Checknumber)</label>
+          <input id="forgotChecknumberInput" type="text" required>
+          <button type="submit" class="primary">Send Reset Code</button>
+          <p class="register-text"><a href="#" id="backToLoginLink2" class="secondary-link">Back to Sign In</a></p>
+          <div id="forgotPasswordError" class="notification"></div>
+          <div id="resetCodeContainer" class="hidden">
+            <p>Reset code has been sent. Enter it below:</p>
+            <label for="resetTokenInput">Reset Code</label>
+            <input id="resetTokenInput" type="text">
+            <label for="newPasswordInput">New Password</label>
+            <input id="newPasswordInput" type="password">
+            <label for="newPasswordConfirmInput">Confirm Password</label>
+            <input id="newPasswordConfirmInput" type="password">
+            <button type="button" id="submitResetBtn" class="primary">Reset Password</button>
+          </div>
         </form>
       </div>
       <footer class="login-footer">
@@ -64,18 +101,21 @@
 
     <main class="main-grid">
       <aside class="sidebar">
+        <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Toggle sidebar" aria-expanded="true">
+          <span class="toggle-icon">«</span>
+        </button>
         <div class="sidebar-section">
           <h2 id="menuTitle">Menu</h2>
           <nav>
-            <button class="nav-btn active" data-view="dashboard">Dashboard</button>
-            <button class="nav-btn" data-view="stations">Stations</button>
-            <button class="nav-btn" data-view="tasks">Tasks</button>
-            <button class="nav-btn" data-view="incidents">Incidents</button>
-            <button class="nav-btn" data-view="vehicles">Vehicles</button>
-            <button class="nav-btn" data-view="equipment">Equipment</button>
-            <button class="nav-btn" data-view="shifts">Shifts</button>
-            <button class="nav-btn" data-view="feedback">Feedback</button>
-            <button class="nav-btn" data-view="reports">Reports</button>
+            <button class="nav-btn active" data-view="dashboard"><span class="nav-label">Dashboard</span></button>
+            <button class="nav-btn" data-view="stations"><span class="nav-label">Stations</span></button>
+            <button class="nav-btn" data-view="tasks"><span class="nav-label">Tasks</span></button>
+            <button class="nav-btn" data-view="incidents"><span class="nav-label">Incidents</span></button>
+            <button class="nav-btn" data-view="vehicles"><span class="nav-label">Vehicles</span></button>
+            <button class="nav-btn" data-view="equipment"><span class="nav-label">Equipment</span></button>
+            <button class="nav-btn" data-view="shifts"><span class="nav-label">Shifts</span></button>
+            <button class="nav-btn" data-view="feedback"><span class="nav-label">Feedback</span></button>
+            <button class="nav-btn" data-view="reports"><span class="nav-label">Reports</span></button>
           </nav>
         </div>
       </aside>
@@ -125,18 +165,27 @@
         </section>
 
         <section id="equipmentView" class="view">
-          <h2 id="equipmentTitle">Equipment & Inventory</h2>
+          <div class="view-header">
+            <h2 id="equipmentTitle">Equipment & Inventory</h2>
+            <button class="primary" id="newEquipmentBtn">Add Equipment</button>
+          </div>
           <div id="equipmentList" class="table-container"></div>
         </section>
 
         <section id="shiftsView" class="view">
-          <h2 id="shiftsTitle">Shift Management</h2>
+          <div class="view-header">
+            <h2 id="shiftsTitle">Shift Management</h2>
+            <button class="primary" id="newShiftBtn">Add Shift</button>
+          </div>
           <div id="shiftsList" class="table-container"></div>
         </section>
 
         <section id="feedbackView" class="view">
-          <h2 id="feedbackTitle">Feedback</h2>
+          <div class="view-header">
+            <h2 id="feedbackTitle">Feedback</h2>
+          </div>
           <div class="feedback-form">
+            <h3>Submit Feedback</h3>
             <label>Officer / Station</label>
             <input id="feedbackSource" type="text" placeholder="Name or station">
             <label>Message</label>
@@ -144,6 +193,7 @@
             <button class="primary" id="submitFeedbackBtn">Submit Feedback</button>
             <div id="feedbackConfirmation" class="notification"></div>
           </div>
+          <div id="feedbackList" class="table-container"></div>
         </section>
 
         <section id="reportsView" class="view">

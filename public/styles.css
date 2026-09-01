@@ -46,6 +46,7 @@
   --radius-xl: 22px;
 
   --sidebar-width: 255px;
+  --sidebar-collapsed-width: 78px;
   --topbar-height: 78px;
 
   --transition: 0.25s ease;
@@ -273,44 +274,27 @@ img {
    ========================================================= */
 
 .coat-of-arms {
-  width: 90px;
-  height: 100px;
-  flex: 0 0 90px;
+  width: 100px;
+  height: 110px;
+  flex: 0 0 100px;
   position: relative;
-
-  background:
-    linear-gradient(
-      145deg,
-      rgba(245, 180, 0, 0.2),
-      rgba(200, 16, 46, 0.2)
-    );
-
-  border: 2px solid rgba(245, 180, 0, 0.65);
-  border-radius: 45% 45% 48% 48%;
-  box-shadow:
-    0 0 0 5px rgba(245, 180, 0, 0.04),
-    0 10px 30px rgba(0, 0, 0, 0.4);
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 .coat-of-arms::before {
-  content: "★";
+  content: "";
   position: absolute;
-  top: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  color: var(--accent);
-  font-size: 22px;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 220'%3E%3Cg fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M100 12c-18 22-26 34-20 58 7 28 24 34 28 58 12 0 33-9 39-32 8-31-7-58-47-84Z' fill='%23facc15'/%3E%3Cpath d='M98 20c-16 20-25 32-20 54 7 28 26 38 31 61h-4c-9-21-34-32-45-70-7-23 2-38 16-52 11-11 23-15 32-17Z' fill='%23f87171'/%3E%3Cpath d='M76 60c-15 20-22 32-17 44 10 25 32 29 38 30-9-23-12-35-21-74Z' fill='%23ef4444'/%3E%3Cpath d='M124 60c15 20 22 32 17 44-10 25-32 29-38 30 9-23 12-35 21-74Z' fill='%23ef4444'/%3E%3Cpath d='M90 90h20v58H90z' fill='%23d0d4df'/%3E%3Cpath d='M38 92c20 22 34 39 44 62l-24 10c-14-18-24-32-34-52l14-20Z' fill='%23facc15'/%3E%3Cpath d='M162 92c-20 22-34 39-44 62l24 10c14-18 24-32 34-52l-14-20Z' fill='%23facc15'/%3E%3Cpath d='M95 110h10v78H95zM95 118h30v10H95z' fill='%23a7b3c6'/%3E%3Cpath d='M64 130h72v10H64zM49 150h102v12H49z' fill='%23c2c8d1'/%3E%3Cpath d='M69 168c8-10 16-14 31-14s23 4 31 14l-31 25-31-25Z' fill='%23dfe7f1'/%3E%3Ccircle cx='100' cy='100' r='64' stroke='%230d3b66' stroke-width='8' fill='none'/%3E%3Cpath d='M100 28v35M65 100h35M100 100h35M100 165v-35' stroke='%230d3b66' stroke-width='6'/%3E%3Cpath d='M36 100c20-18 36-27 64-27s44 9 64 27c-20 18-36 27-64 27s-44-9-64-27Z' fill='none' stroke='%230d3b66' stroke-width='6'/%3E%3Cg fill='%230d3b66' font-family='Arial, Helvetica, sans-serif' font-weight='700' font-size='10'%3E%3Ctext x='100' y='115' text-anchor='middle'%3EJESHI%3C/text%3E%3Ctext x='100' y='128' text-anchor='middle'%3ELA%3C/text%3E%3Ctext x='100' y='141' text-anchor='middle'%3EZIMAMOTO%3C/text%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: center;
 }
 
 .coat-of-arms::after {
-  content: "TZ";
-  position: absolute;
-  left: 50%;
-  bottom: 22px;
-  transform: translateX(-50%);
-  color: var(--white);
-  font-size: 18px;
-  font-weight: 800;
+  content: "";
 }
 
 
@@ -598,34 +582,24 @@ select:focus {
 }
 
 .logo {
-  width: 44px;
-  height: 44px;
-  flex: 0 0 44px;
-
-  border-radius: 12px;
-
-  background:
-    linear-gradient(
-      145deg,
-      var(--primary),
-      var(--primary-dark)
-    );
-
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
   position: relative;
-
-  box-shadow:
-    0 7px 18px rgba(200, 16, 46, 0.3);
+  border-radius: 12px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 .logo::before {
-  content: "✚";
+  content: "";
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: white;
-  font-size: 22px;
-  font-weight: 900;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 220'%3E%3Cg fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M100 12c-18 22-26 34-20 58 7 28 24 34 28 58 12 0 33-9 39-32 8-31-7-58-47-84Z' fill='%23facc15'/%3E%3Cpath d='M98 20c-16 20-25 32-20 54 7 28 26 38 31 61h-4c-9-21-34-32-45-70-7-23 2-38 16-52 11-11 23-15 32-17Z' fill='%23f87171'/%3E%3Cpath d='M76 60c-15 20-22 32-17 44 10 25 32 29 38 30-9-23-12-35-21-74Z' fill='%23ef4444'/%3E%3Cpath d='M124 60c15 20 22 32 17 44-10 25-32 29-38 30 9-23 12-35 21-74Z' fill='%23ef4444'/%3E%3Cpath d='M90 90h20v58H90z' fill='%23d0d4df'/%3E%3Cpath d='M38 92c20 22 34 39 44 62l-24 10c-14-18-24-32-34-52l14-20Z' fill='%23facc15'/%3E%3Cpath d='M162 92c-20 22-34 39-44 62l24 10c14-18 24-32 34-52l-14-20Z' fill='%23facc15'/%3E%3Cpath d='M95 110h10v78H95zM95 118h30v10H95z' fill='%23a7b3c6'/%3E%3Cpath d='M64 130h72v10H64zM49 150h102v12H49z' fill='%23c2c8d1'/%3E%3Cpath d='M69 168c8-10 16-14 31-14s23 4 31 14l-31 25-31-25Z' fill='%23dfe7f1'/%3E%3Ccircle cx='100' cy='100' r='64' stroke='%230d3b66' stroke-width='8' fill='none'/%3E%3Cpath d='M100 28v35M65 100h35M100 100h35M100 165v-35' stroke='%230d3b66' stroke-width='6'/%3E%3Cpath d='M36 100c20-18 36-27 64-27s44 9 64 27c-20 18-36 27-64 27s-44-9-64-27Z' fill='none' stroke='%230d3b66' stroke-width='6'/%3E%3Cg fill='%230d3b66' font-family='Arial, Helvetica, sans-serif' font-weight='700' font-size='10'%3E%3Ctext x='100' y='115' text-anchor='middle'%3EJESHI%3C/text%3E%3Ctext x='100' y='128' text-anchor='middle'%3ELA%3C/text%3E%3Ctext x='100' y='141' text-anchor='middle'%3EZIMAMOTO%3C/text%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: center;
 }
 
 .brand h1 {
@@ -691,6 +665,11 @@ select:focus {
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   min-height: calc(100vh - var(--topbar-height));
+  transition: grid-template-columns var(--transition);
+}
+
+.app-shell.sidebar-collapsed .main-grid {
+  grid-template-columns: var(--sidebar-collapsed-width) minmax(0, 1fr);
 }
 
 
@@ -700,11 +679,11 @@ select:focus {
 
 .sidebar {
   background:
-    linear-gradient(
-      180deg,
-      #0d1420,
-      #090e17
-    );
+   linear-gradient(
+     180deg,
+     #0d1420,
+     #090e17
+   );
 
   border-right: 1px solid var(--border);
 
@@ -715,6 +694,11 @@ select:focus {
   overflow-y: auto;
 
   padding: 22px 14px;
+  transition: padding var(--transition);
+}
+
+.app-shell.sidebar-collapsed .sidebar {
+  padding-inline: 10px;
 }
 
 .sidebar-section h2 {
@@ -729,10 +713,47 @@ select:focus {
   letter-spacing: 1.7px;
 }
 
+.app-shell.sidebar-collapsed .sidebar-section h2,
+.app-shell.sidebar-collapsed .nav-label {
+  display: none;
+}
+
 .sidebar nav {
   display: flex;
   flex-direction: column;
   gap: 5px;
+}
+
+.sidebar-toggle {
+  width: 100%;
+  min-height: 38px;
+  margin-bottom: 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 12px;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+
+.sidebar-toggle:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: var(--white);
+}
+
+.toggle-icon {
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.app-shell.sidebar-collapsed .sidebar-toggle {
+  justify-content: center;
+  padding-inline: 0;
 }
 
 
@@ -752,17 +773,27 @@ select:focus {
   background: transparent;
   color: #aab4c4;
 
+  display: flex;
+  align-items: center;
+  gap: 10px;
   text-align: left;
   font-size: 13px;
   font-weight: 600;
 
   transition:
-    color var(--transition),
-    background var(--transition),
-    transform var(--transition),
-    border-color var(--transition);
+   color var(--transition),
+   background var(--transition),
+   transform var(--transition),
+   border-color var(--transition),
+   justify-content var(--transition);
 
   position: relative;
+}
+
+.nav-btn .nav-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .nav-btn::before {
@@ -772,9 +803,7 @@ select:focus {
   width: 6px;
   height: 6px;
 
-  margin-right: 11px;
-
-  vertical-align: middle;
+  flex: 0 0 6px;
 
   border-radius: 50%;
   background: #455267;
@@ -792,11 +821,11 @@ select:focus {
   color: var(--white);
 
   background:
-    linear-gradient(
-      90deg,
-      rgba(200, 16, 46, 0.22),
-      rgba(200, 16, 46, 0.06)
-    );
+   linear-gradient(
+     90deg,
+     rgba(200, 16, 46, 0.22),
+     rgba(200, 16, 46, 0.06)
+   );
 
   border-color: rgba(200, 16, 46, 0.18);
 }
@@ -804,6 +833,20 @@ select:focus {
 .nav-btn.active::before {
   background: var(--primary-light);
   box-shadow: 0 0 10px rgba(239, 51, 64, 0.8);
+}
+
+.app-shell.sidebar-collapsed .nav-btn {
+  justify-content: center;
+  padding-inline: 0;
+  transform: none;
+}
+
+.app-shell.sidebar-collapsed .nav-btn::before {
+  margin-right: 0;
+}
+
+.app-shell.sidebar-collapsed .nav-btn:hover {
+  transform: none;
 }
 
 
@@ -1054,6 +1097,62 @@ select:focus {
 
 .table-container tbody tr:last-child td {
   border-bottom: 0;
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--transition), opacity var(--transition), filter var(--transition);
+}
+
+.action-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+}
+
+.action-btn[data-action="view-station"],
+.action-btn[data-action="view-task"],
+.action-btn[data-action="view-incident"],
+.action-btn[data-action="view-vehicle"],
+.action-btn[data-action="view-equipment"],
+.action-btn[data-action="view-shift"] {
+  background: rgba(59, 130, 246, 0.14);
+  color: #bfe0ff;
+  border-color: rgba(96, 165, 250, 0.35);
+}
+
+.action-btn[data-action="edit-station"],
+.action-btn[data-action="edit-task"],
+.action-btn[data-action="edit-incident"],
+.action-btn[data-action="edit-vehicle"],
+.action-btn[data-action="edit-equipment"],
+.action-btn[data-action="edit-shift"] {
+  background: rgba(250, 204, 21, 0.12);
+  color: #fcd34d;
+  border-color: rgba(250, 204, 21, 0.35);
+}
+
+.action-btn[data-action="delete-station"],
+.action-btn[data-action="delete-task"],
+.action-btn[data-action="delete-incident"],
+.action-btn[data-action="delete-vehicle"],
+.action-btn[data-action="delete-equipment"],
+.action-btn[data-action="delete-shift"] {
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.35);
 }
 
 
