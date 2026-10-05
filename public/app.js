@@ -54,6 +54,8 @@ const usersList = document.getElementById('usersList');
 const leaveList = document.getElementById('leaveList');
 const trainingList = document.getElementById('trainingList');
 const performanceList = document.getElementById('performanceList');
+const financeList = document.getElementById('financeList');
+const inspectionList = document.getElementById('inspectionList');
 const newNoticeBtn = document.getElementById('newNoticeBtn');
 const newUserBtn = document.getElementById('newUserBtn');
 const newTrainingBtn = document.getElementById('newTrainingBtn');
@@ -407,16 +409,35 @@ profileForm.addEventListener('submit', async event => {
 });
 
 const viewPermissions = {
-  admin: ['dashboard', 'stations', 'tasks', 'incidents', 'vehicles', 'equipment', 'shifts', 'notices', 'users', 'leave', 'training', 'performance', 'feedback', 'reports', 'settings'],
+  admin: ['dashboard', 'stations', 'tasks', 'incidents', 'vehicles', 'equipment', 'shifts', 'notices', 'users', 'leave', 'training', 'performance', 'finance', 'inspections', 'feedback', 'reports', 'settings'],
+  system_manager: ['dashboard', 'stations', 'tasks', 'incidents', 'vehicles', 'equipment', 'shifts', 'notices', 'users', 'leave', 'training', 'performance', 'finance', 'inspections', 'feedback', 'reports', 'settings'],
   station: ['dashboard', 'stations', 'tasks', 'incidents', 'vehicles', 'equipment', 'shifts', 'notices', 'leave', 'training', 'performance', 'feedback', 'reports', 'settings'],
   shift: ['dashboard', 'tasks', 'incidents', 'shifts', 'notices', 'leave', 'training', 'performance', 'feedback', 'reports', 'settings'],
   officer: ['dashboard', 'tasks', 'incidents', 'notices', 'leave', 'training', 'performance', 'feedback', 'reports', 'settings'],
   mechanic: ['dashboard', 'vehicles', 'equipment', 'notices', 'leave', 'training', 'performance', 'feedback', 'reports', 'settings'],
   equipment: ['dashboard', 'equipment', 'notices', 'leave', 'feedback', 'reports', 'settings'],
+  hr: ['dashboard', 'users', 'leave', 'training', 'performance', 'notices', 'feedback', 'reports', 'settings'],
+  accountant: ['dashboard', 'finance', 'notices', 'reports', 'settings'],
+  fire_marshal: ['dashboard', 'stations', 'incidents', 'equipment', 'inspections', 'notices', 'reports', 'settings'],
   viewer: ['dashboard', 'notices', 'reports', 'settings']
 };
 
+const roleActivities = {
+  admin: ['Manage every module, users, role assignments, system settings, and backups.'],
+  system_manager: ['Full operational and user administration access, including audit and backup tools.'],
+  hr: ['Maintain the staff directory; review leave requests; coordinate training and performance records.'],
+  accountant: ['Record income and expenses; maintain references; verify or reject pending financial entries; review reports.'],
+  fire_marshal: ['Review station, incident, and equipment records; record fire-safety inspections, hazards, and follow-up actions.'],
+  station: ['Manage station operations, assignments, incidents, shifts, notices, and local staff workflows.'],
+  shift: ['Coordinate shifts, tasks, incident responses, leave reviews, and training schedules.'],
+  officer: ['Review assigned operations, report incidents, submit leave requests, and track personal goals.'],
+  mechanic: ['Maintain assigned vehicle and equipment readiness and report operational issues.'],
+  equipment: ['Track equipment inventory and condition and report damaged or missing items.'],
+  viewer: ['View dashboard summaries, notices, and reports without operational write access.']
+};
+
 function updateNavForRole(role) {
+  const fullAccess = ['admin', 'system_manager'].includes(role);
   const allowed = viewPermissions[role] || viewPermissions.viewer;
   navBtns.forEach(btn => btn.classList.toggle('hidden', !allowed.includes(btn.dataset.view)));
   const activeButton = navBtns.find(btn => btn.classList.contains('active') && !btn.classList.contains('hidden'));
@@ -424,16 +445,24 @@ function updateNavForRole(role) {
     const firstVisible = navBtns.find(btn => !btn.classList.contains('hidden'));
     if (firstVisible) switchView(firstVisible.dataset.view);
   }
-  newNoticeBtn.classList.toggle('hidden', !['admin', 'station'].includes(role));
-  newUserBtn.classList.toggle('hidden', role !== 'admin');
-  newTrainingBtn.classList.toggle('hidden', !['admin', 'station', 'shift'].includes(role));
-  document.getElementById('newStationBtn').classList.toggle('hidden', !['admin', 'station'].includes(role));
-  document.getElementById('newTaskBtn').classList.toggle('hidden', !['admin', 'station', 'shift'].includes(role));
-  document.getElementById('newIncidentBtn').classList.toggle('hidden', !['admin', 'station', 'shift', 'officer'].includes(role));
-  document.getElementById('newVehicleBtn').classList.toggle('hidden', !['admin', 'mechanic'].includes(role));
-  newEquipmentBtn.classList.toggle('hidden', !['admin', 'equipment'].includes(role));
-  newShiftBtn.classList.toggle('hidden', !['admin', 'station', 'shift'].includes(role));
-  document.querySelectorAll('.admin-only').forEach(element => element.classList.toggle('hidden', role !== 'admin'));
+  newNoticeBtn.classList.toggle('hidden', !(fullAccess || ['station'].includes(role)));
+  newUserBtn.classList.toggle('hidden', !fullAccess);
+  newTrainingBtn.classList.toggle('hidden', !(fullAccess || ['station', 'shift', 'hr'].includes(role)));
+  document.getElementById('newStationBtn').classList.toggle('hidden', !(fullAccess || role === 'station'));
+  document.getElementById('newTaskBtn').classList.toggle('hidden', !(fullAccess || ['station', 'shift'].includes(role)));
+  document.getElementById('newIncidentBtn').classList.toggle('hidden', !(fullAccess || ['station', 'shift', 'officer', 'fire_marshal'].includes(role)));
+  document.getElementById('newVehicleBtn').classList.toggle('hidden', !(fullAccess || role === 'mechanic'));
+  newEquipmentBtn.classList.toggle('hidden', !(fullAccess || ['equipment', 'fire_marshal'].includes(role)));
+  newShiftBtn.classList.toggle('hidden', !(fullAccess || ['station', 'shift'].includes(role)));
+  document.getElementById('newInspectionBtn').classList.toggle('hidden', !(fullAccess || role === 'fire_marshal'));
+  document.querySelectorAll('.admin-only').forEach(element => element.classList.toggle('hidden', !fullAccess));
+  renderRoleActivities(role);
+}
+
+function renderRoleActivities(role) {
+  const descriptions = roleActivities[role] || roleActivities.viewer;
+  const label = currentUser?.role || role;
+  document.getElementById('roleActivities').innerHTML = `<article class="role-activity-card"><div><span class="role-activity-kicker">YOUR ROLE</span><h3>${escapeHtml(label)}</h3></div><ul>${descriptions.map(activity => `<li>${escapeHtml(activity)}</li>`).join('')}</ul></article>`;
 }
 
 function renderDashboard(data) {
@@ -449,6 +478,8 @@ function renderDashboard(data) {
   if (data.pendingLeave !== undefined) dashboardSummary.appendChild(createSummaryCard('Leave Requests', data.pendingLeave));
   if (data.trainingUpcoming !== undefined) dashboardSummary.appendChild(createSummaryCard('Upcoming Training', data.trainingUpcoming));
   if (data.performanceGoals !== undefined) dashboardSummary.appendChild(createSummaryCard('Performance Goals', data.performanceGoals));
+  if (data.financePending !== undefined) dashboardSummary.appendChild(createSummaryCard('Finance Pending', data.financePending));
+  if (data.fireInspections !== undefined) dashboardSummary.appendChild(createSummaryCard('Fire Inspections', data.fireInspections));
 
   dashboardCards.innerHTML = `
     <div class="card"><h3>Incident Reports</h3><p>${data.incidents.length} recorded events</p></div>
@@ -1002,6 +1033,7 @@ function renderNotices(data) {
 }
 
 async function loadUsers() {
+  const canManageUsers = ['admin', 'system_manager'].includes(currentUser?.roleCode);
   const [users, roles, stations] = await Promise.all([getJson('/api/users'), getJson('/api/roles'), getJson('/api/stations')]);
   const roleSelect = document.getElementById('managedUserRole');
   const stationSelect = document.getElementById('managedUserStation');
@@ -1010,7 +1042,7 @@ async function loadUsers() {
   const rows = users.map(user => [
     escapeHtml(user.name), escapeHtml(user.checknumber), escapeHtml(user.role), escapeHtml(user.station_id ? stations.find(item => Number(item.id) === Number(user.station_id))?.name || 'Unassigned' : 'Unassigned'),
     escapeHtml(user.email || '—'), user.active ? 'Active' : 'Disabled',
-    `${actionButtonsHtml(user.id, 'edit-user', 'Edit')}${actionButtonsHtml(user.id, 'toggle-user', user.active ? 'Disable' : 'Enable')}`
+    canManageUsers ? `${actionButtonsHtml(user.id, 'edit-user', 'Edit')}${actionButtonsHtml(user.id, 'toggle-user', user.active ? 'Disable' : 'Enable')}` : 'Staff directory'
   ]);
   usersList.innerHTML = '';
   usersList.appendChild(createTable(['Name', 'Username', 'Role', 'Station', 'Email', 'Status', 'Actions'], rows));
@@ -1126,6 +1158,84 @@ function renderPerformance(data) {
   });
 }
 
+function renderFinance(data) {
+  const summary = document.getElementById('financeSummary');
+  const income = data.filter(entry => entry.entry_type === 'income').reduce((sum, entry) => sum + Number(entry.amount), 0);
+  const expenses = data.filter(entry => entry.entry_type === 'expense').reduce((sum, entry) => sum + Number(entry.amount), 0);
+  const pending = data.filter(entry => entry.status === 'pending').length;
+  summary.replaceChildren(
+    createSummaryCard('Income (TZS)', income.toLocaleString('en-TZ')),
+    createSummaryCard('Expenses (TZS)', expenses.toLocaleString('en-TZ')),
+    createSummaryCard('Pending verification', pending)
+  );
+  const money = amount => `TZS ${Number(amount).toLocaleString('en-TZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const rows = data.map(entry => {
+    const isOwnerPending = entry.submitted_by === currentUser.id && entry.status === 'pending';
+    const canVerify = ['admin', 'system_manager'].includes(currentUser.roleCode) || currentUser.roleCode === 'accountant' && entry.status === 'pending' && entry.submitted_by !== currentUser.id;
+    const actions = `${isOwnerPending ? actionButtonsHtml(entry.id, 'edit-finance', 'Edit') + actionButtonsHtml(entry.id, 'delete-finance', 'Delete') : ''}${canVerify ? actionButtonsHtml(entry.id, 'approve-finance', 'Verify') + actionButtonsHtml(entry.id, 'reject-finance', 'Reject') : ''}`;
+    return [escapeHtml(entry.entry_date), escapeHtml(entry.entry_type), escapeHtml(entry.category), escapeHtml(money(entry.amount)), escapeHtml(entry.description), escapeHtml(entry.reference || '—'), `<span class="status-pill ${escapeHtml(entry.status)}">${escapeHtml(entry.status)}</span>`, escapeHtml(entry.submitted_by_name || ''), actions || '—'];
+  });
+  financeList.innerHTML = '';
+  financeList.appendChild(createTable(['Date', 'Type', 'Category', 'Amount', 'Description', 'Reference', 'Status', 'Recorded By', 'Actions'], rows));
+  attachActionButtons(financeList, '.action-btn[data-action="edit-finance"]', id => {
+    const entry = data.find(item => item.id === Number(id));
+    if (!entry) return;
+    document.getElementById('financeId').value = entry.id;
+    document.getElementById('financeDateInput').value = entry.entry_date;
+    document.getElementById('financeTypeInput').value = entry.entry_type;
+    document.getElementById('financeCategoryInput').value = entry.category;
+    document.getElementById('financeAmountInput').value = entry.amount;
+    document.getElementById('financeReferenceInput').value = entry.reference;
+    document.getElementById('financeDescriptionInput').value = entry.description;
+    document.getElementById('cancelFinanceEditBtn').classList.remove('hidden');
+    document.getElementById('financeForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+  attachActionButtons(financeList, '.action-btn[data-action="delete-finance"]', async id => {
+    if (!confirm('Delete this pending finance entry?')) return;
+    try { await deleteJson(`/api/finance/${id}`); await loadViewData('finance'); }
+    catch (error) { alert(error.message); }
+  });
+  for (const [action, status] of [['approve-finance', 'approved'], ['reject-finance', 'rejected']]) {
+    attachActionButtons(financeList, `.action-btn[data-action="${action}"]`, async id => {
+      try { await fetchJson(`/api/finance/${id}/verify`, 'PATCH', { status }); await loadViewData('finance'); }
+      catch (error) { alert(error.message); }
+    });
+  }
+}
+
+async function showInspectionEditor(inspection = null) {
+  const stations = await getJson('/api/stations');
+  const select = document.getElementById('inspectionStationInput');
+  select.replaceChildren(new Option('Other / community site', ''), ...stations.map(station => new Option(station.name, station.id)));
+  document.getElementById('inspectionId').value = inspection?.id || '';
+  document.getElementById('inspectionStationInput').value = inspection?.station_id || '';
+  document.getElementById('inspectionDateInput').value = inspection?.inspected_on || new Date().toISOString().slice(0, 10);
+  document.getElementById('inspectionTypeInput').value = inspection?.inspection_type || '';
+  document.getElementById('inspectionRiskInput').value = inspection?.risk_level || 'low';
+  document.getElementById('inspectionOutcomeInput').value = inspection?.outcome || 'compliant';
+  document.getElementById('inspectionFollowUpInput').value = inspection?.follow_up_date || '';
+  document.getElementById('inspectionFindingsInput').value = inspection?.findings || '';
+  document.getElementById('inspectionActionInput').value = inspection?.corrective_action || '';
+  document.getElementById('inspectionForm').classList.remove('hidden');
+  document.getElementById('inspectionForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function renderInspections(data) {
+  const rows = data.map(item => [escapeHtml(item.inspected_on), escapeHtml(item.station_name || 'Community site'), escapeHtml(item.inspection_type), `<span class="status-pill ${escapeHtml(item.risk_level)}">${escapeHtml(item.risk_level)}</span>`, escapeHtml(item.outcome.replaceAll('_', ' ')), escapeHtml(item.inspector_name || ''), escapeHtml(item.follow_up_date || '—'), `${actionButtonsHtml(item.id, 'view-inspection', 'View')}${['admin', 'system_manager', 'fire_marshal'].includes(currentUser.roleCode) ? actionButtonsHtml(item.id, 'edit-inspection', 'Edit') + actionButtonsHtml(item.id, 'delete-inspection', 'Delete') : ''}`]);
+  inspectionList.innerHTML = '';
+  inspectionList.appendChild(createTable(['Date', 'Station / Site', 'Type', 'Risk', 'Outcome', 'Inspector', 'Follow-up', 'Actions'], rows));
+  attachActionButtons(inspectionList, '.action-btn[data-action="view-inspection"]', id => {
+    const item = data.find(record => record.id === Number(id));
+    if (item) showDetails('Fire Safety Inspection', `Station: ${item.station_name || 'Community site'}\nDate: ${item.inspected_on}\nType: ${item.inspection_type}\nRisk: ${item.risk_level}\nOutcome: ${item.outcome}\nFindings: ${item.findings}\nCorrective action: ${item.corrective_action || 'None'}\nFollow-up: ${item.follow_up_date || 'None'}`);
+  });
+  attachActionButtons(inspectionList, '.action-btn[data-action="edit-inspection"]', id => showInspectionEditor(data.find(item => item.id === Number(id))));
+  attachActionButtons(inspectionList, '.action-btn[data-action="delete-inspection"]', async id => {
+    if (!confirm('Delete this inspection record?')) return;
+    try { await deleteJson(`/api/fire-inspections/${id}`); await loadViewData('inspections'); }
+    catch (error) { alert(error.message); }
+  });
+}
+
 async function loadViewData(viewName) {
   try {
     if (viewName === 'notices') renderNotices(await getJson('/api/notices'));
@@ -1133,6 +1243,8 @@ async function loadViewData(viewName) {
     if (viewName === 'leave') renderLeave(await getJson('/api/leave'));
     if (viewName === 'training') renderTraining(await getJson('/api/training'));
     if (viewName === 'performance') renderPerformance(await getJson('/api/performance'));
+    if (viewName === 'finance') renderFinance(await getJson('/api/finance'));
+    if (viewName === 'inspections') renderInspections(await getJson('/api/fire-inspections'));
     if (viewName === 'settings') await loadSettings();
   } catch (error) {
     const containers = { notices: noticesList, users: usersList, leave: leaveList, training: trainingList, performance: performanceList };
@@ -1335,6 +1447,63 @@ document.getElementById('performanceForm').addEventListener('submit', async even
   } catch (error) { moduleNotice(document.getElementById('performanceFormMessage'), error.message); }
 });
 document.getElementById('cancelPerformanceEditBtn').addEventListener('click', resetPerformanceForm);
+
+document.getElementById('financeForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  const id = document.getElementById('financeId').value;
+  const form = document.getElementById('financeForm');
+  const payload = {
+    entry_date: document.getElementById('financeDateInput').value,
+    entry_type: document.getElementById('financeTypeInput').value,
+    category: document.getElementById('financeCategoryInput').value.trim(),
+    amount: Number(document.getElementById('financeAmountInput').value),
+    reference: document.getElementById('financeReferenceInput').value.trim(),
+    description: document.getElementById('financeDescriptionInput').value.trim()
+  };
+  try {
+    await fetchJson(id ? `/api/finance/${id}` : '/api/finance', id ? 'PUT' : 'POST', payload);
+    form.reset();
+    document.getElementById('financeId').value = '';
+    document.getElementById('cancelFinanceEditBtn').classList.add('hidden');
+    moduleNotice(document.getElementById('financeFormMessage'), 'Finance entry saved and queued for verification.', 'success');
+    await loadViewData('finance');
+  } catch (error) { moduleNotice(document.getElementById('financeFormMessage'), error.message); }
+});
+
+document.getElementById('cancelFinanceEditBtn').addEventListener('click', () => {
+  document.getElementById('financeForm').reset();
+  document.getElementById('financeId').value = '';
+  document.getElementById('cancelFinanceEditBtn').classList.add('hidden');
+});
+
+newInspectionBtn.addEventListener('click', () => showInspectionEditor());
+document.getElementById('cancelInspectionEditBtn').addEventListener('click', () => {
+  document.getElementById('inspectionForm').reset();
+  document.getElementById('inspectionId').value = '';
+  document.getElementById('inspectionForm').classList.add('hidden');
+});
+document.getElementById('inspectionForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  const id = document.getElementById('inspectionId').value;
+  const form = document.getElementById('inspectionForm');
+  const payload = {
+    station_id: document.getElementById('inspectionStationInput').value || null,
+    inspected_on: document.getElementById('inspectionDateInput').value,
+    inspection_type: document.getElementById('inspectionTypeInput').value.trim(),
+    risk_level: document.getElementById('inspectionRiskInput').value,
+    outcome: document.getElementById('inspectionOutcomeInput').value,
+    follow_up_date: document.getElementById('inspectionFollowUpInput').value || null,
+    findings: document.getElementById('inspectionFindingsInput').value.trim(),
+    corrective_action: document.getElementById('inspectionActionInput').value.trim()
+  };
+  try {
+    await fetchJson(id ? `/api/fire-inspections/${id}` : '/api/fire-inspections', id ? 'PUT' : 'POST', payload);
+    form.reset();
+    document.getElementById('inspectionId').value = '';
+    form.classList.add('hidden');
+    await loadViewData('inspections');
+  } catch (error) { alert(error.message); }
+});
 
 document.getElementById('settingsForm').addEventListener('submit', async event => {
   event.preventDefault();

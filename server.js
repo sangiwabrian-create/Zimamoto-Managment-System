@@ -186,6 +186,37 @@ function initSchema() {
       created_at TEXT NOT NULL,
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL
     );
+    CREATE TABLE IF NOT EXISTS finance_entries (
+      id INTEGER PRIMARY KEY,
+      entry_date TEXT NOT NULL,
+      entry_type TEXT NOT NULL,
+      category TEXT NOT NULL,
+      amount REAL NOT NULL,
+      description TEXT NOT NULL,
+      reference TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'pending',
+      submitted_by INTEGER NOT NULL,
+      verified_by INTEGER,
+      verified_at TEXT,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY(submitted_by) REFERENCES users(id),
+      FOREIGN KEY(verified_by) REFERENCES users(id)
+    );
+    CREATE TABLE IF NOT EXISTS fire_inspections (
+      id INTEGER PRIMARY KEY,
+      station_id INTEGER,
+      inspector_id INTEGER NOT NULL,
+      inspected_on TEXT NOT NULL,
+      inspection_type TEXT NOT NULL,
+      risk_level TEXT NOT NULL,
+      outcome TEXT NOT NULL,
+      findings TEXT NOT NULL,
+      corrective_action TEXT NOT NULL DEFAULT '',
+      follow_up_date TEXT,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY(station_id) REFERENCES stations(id) ON DELETE SET NULL,
+      FOREIGN KEY(inspector_id) REFERENCES users(id)
+    );
   `);
 
   const userColumns = new Set(db.prepare('PRAGMA table_info(users)').all().map(column => column.name));
@@ -238,12 +269,16 @@ function seedData() {
 
   const roles = [
     ['admin', 'Kamanda wa Mkoa'],
+    ['system_manager', 'System Manager'],
     ['station', 'Kamanda wa Kituo'],
     ['shift', 'Mkuu wa Zamu'],
     ['officer', 'Askari Zimamoto'],
     ['mechanic', 'Fundi Magari'],
     ['equipment', 'Afisa wa Vifaa'],
-    ['viewer', 'Viewer / Read-only']
+    ['viewer', 'Viewer / Read-only'],
+    ['hr', 'Human Resources Officer'],
+    ['accountant', 'Accountant'],
+    ['fire_marshal', 'Fire Marshal']
   ];
   roles.forEach(r => insertRole.run(...r));
 
@@ -314,6 +349,19 @@ function vehicleRowToObject(row) {
 initSchema();
 seedData();
 
+const supportedRoles = [
+  ['system_manager', 'System Manager'],
+  ['hr', 'Human Resources Officer'],
+  ['accountant', 'Accountant'],
+  ['fire_marshal', 'Fire Marshal']
+];
+const ensureRoles = db.prepare('INSERT OR IGNORE INTO roles (code, label) VALUES (?, ?)');
+supportedRoles.forEach(role => ensureRoles.run(...role));
+
+function hasFullAccess(roleCode) {
+  return roleCode === 'admin' || roleCode === 'system_manager';
+}
+
 const sessionCookieName = 'zimamoto_session';
 const sessionDurationMs = 24 * 60 * 60 * 1000;
 
@@ -360,7 +408,7 @@ function requireAuthentication(req, res, next) {
 
 function requireRoles(...roles) {
   return (req, res, next) => {
-    if (!req.user || !roles.includes(req.user.roleCode)) {
+    if (!req.user || (!hasFullAccess(req.user.roleCode) && !roles.includes(req.user.roleCode))) {
       return res.status(403).json({ message: 'You do not have permission to perform this action' });
     }
     next();
@@ -499,7 +547,7 @@ app.put('/api/users/:id/profile', (req, res) => {
 });
 
 app.get('/api/users', (req, res) => {
-  if (req.user.roleCode !== 'admin') return res.status(403).json({ message: 'Administrator access required' });
+  if (!hasFullAccess(req.user.roleCode) && req.user.roleCode !== 'hr') return res.status(403).json({ message: 'HR or administrator access required' });
   const rows = db.prepare(`SELECT u.id, u.checknumber, u.name, u.email, u.phone, r.label AS role,
     u.role_code AS roleCode, u.station_id, u.active, u.availability
     FROM users u JOIN roles r ON u.role_code = r.code ORDER BY u.name`).all();
@@ -533,7 +581,7 @@ app.put('/api/users/:id', requireRoles('admin'), (req, res) => {
   if (!db.prepare('SELECT code FROM roles WHERE code = ?').get(role_code)) return res.status(400).json({ message: 'Choose a valid role' });
   if (station_id && !db.prepare('SELECT id FROM stations WHERE id = ?').get(Number(station_id))) return res.status(400).json({ message: 'Choose a valid station' });
   const isActive = active === false || active === 0 ? 0 : 1;
-  if (id === req.user.id && (!isActive || role_code !== 'admin')) return res.status(400).json({ message: 'You cannot deactivate or remove your own administrator access' });
+  if (id === req.user.id && (!isActive || !hasFullAccess(role_code))) return res.status(400).json({ message: 'You cannot deactivate or remove your own full administrator access' });
   db.prepare(`UPDATE users SET name = ?, role_code = ?, station_id = ?, email = ?, phone = ?, active = ? WHERE id = ?`)
     .run(name.trim(), role_code, station_id ? Number(station_id) : null, email || null, phone || null, isActive, id);
   if (!isActive) db.prepare('DELETE FROM auth_sessions WHERE user_id = ?').run(id);
@@ -589,7 +637,7 @@ app.delete('/api/notices/:id', requireRoles('admin', 'station'), (req, res) => {
 });
 
 app.get('/api/leave', (req, res) => {
-  const canReview = ['admin', 'station', 'shift'].includes(req.user.roleCode);
+  const canReview = hasFullAccess(req.user.roleCode) || ['station', 'shift', 'hr'].includes(req.user.roleCode);
   const query = `SELECT l.*, u.name AS employee, u.checknumber, reviewer.name AS reviewer
     FROM leave_requests l JOIN users u ON u.id = l.user_id
     LEFT JOIN users reviewer ON reviewer.id = l.reviewed_by
@@ -608,7 +656,7 @@ app.post('/api/leave', (req, res) => {
   res.status(201).json(db.prepare('SELECT * FROM leave_requests WHERE id = ?').get(result.lastInsertRowid));
 });
 
-app.patch('/api/leave/:id/review', requireRoles('admin', 'station', 'shift'), (req, res) => {
+app.patch('/api/leave/:id/review', requireRoles('admin', 'station', 'shift', 'hr'), (req, res) => {
   const id = Number(req.params.id);
   const { status, review_note = '' } = req.body;
   if (!['approved', 'rejected'].includes(status)) return res.status(400).json({ message: 'Review status must be approved or rejected' });
@@ -625,7 +673,7 @@ app.delete('/api/leave/:id', (req, res) => {
   const id = Number(req.params.id);
   const request = db.prepare('SELECT * FROM leave_requests WHERE id = ?').get(id);
   if (!request) return res.status(404).json({ message: 'Leave request not found' });
-  const mayDelete = request.user_id === req.user.id && request.status === 'pending' || req.user.roleCode === 'admin';
+  const mayDelete = request.user_id === req.user.id && request.status === 'pending' || hasFullAccess(req.user.roleCode) || req.user.roleCode === 'hr';
   if (!mayDelete) return res.status(403).json({ message: 'Only the owner of a pending request or an administrator can remove it' });
   db.prepare('DELETE FROM leave_requests WHERE id = ?').run(id);
   recordAudit(req, 'delete', 'leave_request', id);
@@ -637,7 +685,7 @@ app.get('/api/training', (req, res) => {
     LEFT JOIN users creator ON creator.id = t.created_by ORDER BY t.training_date DESC, t.id DESC`).all());
 });
 
-app.post('/api/training', requireRoles('admin', 'station', 'shift'), (req, res) => {
+app.post('/api/training', requireRoles('admin', 'station', 'shift', 'hr'), (req, res) => {
   const { name, coordinator, training_date, location, participants = 1, status = 'Upcoming', description = '' } = req.body;
   if (![name, coordinator, location].every(value => typeof value === 'string' && value.trim()) || !validDate(training_date)) {
     return res.status(400).json({ message: 'Training name, coordinator, location, and a valid date are required' });
@@ -651,7 +699,7 @@ app.post('/api/training', requireRoles('admin', 'station', 'shift'), (req, res) 
   res.status(201).json(db.prepare('SELECT * FROM training_records WHERE id = ?').get(result.lastInsertRowid));
 });
 
-app.put('/api/training/:id', requireRoles('admin', 'station', 'shift'), (req, res) => {
+app.put('/api/training/:id', requireRoles('admin', 'station', 'shift', 'hr'), (req, res) => {
   const id = Number(req.params.id);
   const existing = db.prepare('SELECT * FROM training_records WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ message: 'Training record not found' });
@@ -673,7 +721,7 @@ app.put('/api/training/:id', requireRoles('admin', 'station', 'shift'), (req, re
   res.json(db.prepare('SELECT * FROM training_records WHERE id = ?').get(id));
 });
 
-app.delete('/api/training/:id', requireRoles('admin', 'station'), (req, res) => {
+app.delete('/api/training/:id', requireRoles('admin', 'station', 'hr'), (req, res) => {
   const id = Number(req.params.id);
   const row = db.prepare('SELECT * FROM training_records WHERE id = ?').get(id);
   if (!row) return res.status(404).json({ message: 'Training record not found' });
@@ -683,7 +731,7 @@ app.delete('/api/training/:id', requireRoles('admin', 'station'), (req, res) => 
 });
 
 app.get('/api/performance', (req, res) => {
-  const isManager = ['admin', 'station'].includes(req.user.roleCode);
+  const isManager = hasFullAccess(req.user.roleCode) || ['station', 'hr'].includes(req.user.roleCode);
   const query = `SELECT g.*, u.name AS employee FROM performance_goals g JOIN users u ON u.id = g.user_id
     ${isManager ? '' : 'WHERE g.user_id = ?'} ORDER BY g.deadline ASC, g.id DESC`;
   res.json(isManager ? db.prepare(query).all() : db.prepare(query).all(req.user.id));
@@ -706,7 +754,7 @@ app.put('/api/performance/:id', (req, res) => {
   const id = Number(req.params.id);
   const goal = db.prepare('SELECT * FROM performance_goals WHERE id = ?').get(id);
   if (!goal) return res.status(404).json({ message: 'Goal not found' });
-  if (goal.user_id !== req.user.id && !['admin', 'station'].includes(req.user.roleCode)) return res.status(403).json({ message: 'You can only edit your own goals' });
+  if (goal.user_id !== req.user.id && !hasFullAccess(req.user.roleCode) && !['station', 'hr'].includes(req.user.roleCode)) return res.status(403).json({ message: 'You can only edit your own goals' });
   const values = { name: req.body.name ?? goal.name, metric: req.body.metric ?? goal.metric, deadline: req.body.deadline ?? goal.deadline, progress: Number(req.body.progress ?? goal.progress), status: req.body.status ?? goal.status };
   if (typeof values.name !== 'string' || !values.name.trim() || !validDate(values.deadline) || !Number.isInteger(values.progress) || values.progress < 0 || values.progress > 100 || !['Pending', 'In Progress', 'Completed'].includes(values.status)) return res.status(400).json({ message: 'Invalid goal details' });
   db.prepare('UPDATE performance_goals SET name = ?, metric = ?, deadline = ?, progress = ?, status = ?, updated_at = ? WHERE id = ?')
@@ -719,7 +767,7 @@ app.delete('/api/performance/:id', (req, res) => {
   const id = Number(req.params.id);
   const goal = db.prepare('SELECT * FROM performance_goals WHERE id = ?').get(id);
   if (!goal) return res.status(404).json({ message: 'Goal not found' });
-  if (goal.user_id !== req.user.id && !['admin', 'station'].includes(req.user.roleCode)) return res.status(403).json({ message: 'You can only delete your own goals' });
+  if (goal.user_id !== req.user.id && !hasFullAccess(req.user.roleCode) && !['station', 'hr'].includes(req.user.roleCode)) return res.status(403).json({ message: 'You can only delete your own goals' });
   db.prepare('DELETE FROM performance_goals WHERE id = ?').run(id);
   recordAudit(req, 'delete', 'performance_goal', id);
   res.json(goal);
@@ -742,6 +790,121 @@ app.put('/api/settings', (req, res) => {
     email_notifications = excluded.email_notifications, push_notifications = excluded.push_notifications`)
     .run(req.user.id, theme, language, emailNotifications ? 1 : 0, pushNotifications ? 1 : 0);
   res.json(db.prepare('SELECT theme, language, email_notifications, push_notifications FROM user_settings WHERE user_id = ?').get(req.user.id));
+});
+
+app.get('/api/finance', requireRoles('accountant'), (req, res) => {
+  res.json(db.prepare(`SELECT f.*, submitter.name AS submitted_by_name, verifier.name AS verified_by_name
+    FROM finance_entries f JOIN users submitter ON submitter.id = f.submitted_by
+    LEFT JOIN users verifier ON verifier.id = f.verified_by
+    ORDER BY f.entry_date DESC, f.id DESC`).all());
+});
+
+app.post('/api/finance', requireRoles('accountant'), (req, res) => {
+  const { entry_date, entry_type, category, amount, description, reference = '' } = req.body;
+  const numericAmount = Number(amount);
+  if (!validDate(entry_date) || !['income', 'expense'].includes(entry_type) || typeof category !== 'string' || !category.trim() || !Number.isFinite(numericAmount) || numericAmount <= 0 || numericAmount > 100000000000 || typeof description !== 'string' || !description.trim()) {
+    return res.status(400).json({ message: 'Provide a valid date, income/expense type, category, positive amount, and description' });
+  }
+  const result = db.prepare(`INSERT INTO finance_entries (entry_date, entry_type, category, amount, description, reference, submitted_by, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(entry_date, entry_type, category.trim().slice(0, 100), numericAmount, description.trim().slice(0, 1000), String(reference).slice(0, 100), req.user.id, new Date().toISOString());
+  recordAudit(req, 'create', 'finance_entry', result.lastInsertRowid);
+  res.status(201).json(db.prepare('SELECT * FROM finance_entries WHERE id = ?').get(result.lastInsertRowid));
+});
+
+app.put('/api/finance/:id', requireRoles('accountant'), (req, res) => {
+  const id = Number(req.params.id);
+  const existing = db.prepare('SELECT * FROM finance_entries WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ message: 'Finance entry not found' });
+  if (existing.status !== 'pending') return res.status(409).json({ message: 'Verified entries cannot be edited' });
+  if (existing.submitted_by !== req.user.id && !hasFullAccess(req.user.roleCode)) return res.status(403).json({ message: 'You can only edit your own pending entries' });
+  const values = {
+    entry_date: req.body.entry_date ?? existing.entry_date,
+    entry_type: req.body.entry_type ?? existing.entry_type,
+    category: req.body.category ?? existing.category,
+    amount: Number(req.body.amount ?? existing.amount),
+    description: req.body.description ?? existing.description,
+    reference: req.body.reference ?? existing.reference
+  };
+  if (!validDate(values.entry_date) || !['income', 'expense'].includes(values.entry_type) || typeof values.category !== 'string' || !values.category.trim() || !Number.isFinite(values.amount) || values.amount <= 0 || typeof values.description !== 'string' || !values.description.trim()) return res.status(400).json({ message: 'Invalid finance entry details' });
+  db.prepare('UPDATE finance_entries SET entry_date = ?, entry_type = ?, category = ?, amount = ?, description = ?, reference = ? WHERE id = ?')
+    .run(values.entry_date, values.entry_type, values.category.trim().slice(0, 100), values.amount, values.description.trim().slice(0, 1000), String(values.reference).slice(0, 100), id);
+  recordAudit(req, 'update', 'finance_entry', id);
+  res.json(db.prepare('SELECT * FROM finance_entries WHERE id = ?').get(id));
+});
+
+app.patch('/api/finance/:id/verify', requireRoles('accountant'), (req, res) => {
+  const id = Number(req.params.id);
+  const { status } = req.body;
+  if (!['approved', 'rejected'].includes(status)) return res.status(400).json({ message: 'Choose approved or rejected' });
+  const entry = db.prepare('SELECT * FROM finance_entries WHERE id = ?').get(id);
+  if (!entry) return res.status(404).json({ message: 'Finance entry not found' });
+  if (entry.status !== 'pending') return res.status(409).json({ message: 'This entry has already been verified' });
+  if (entry.submitted_by === req.user.id && !hasFullAccess(req.user.roleCode)) return res.status(403).json({ message: 'A different accountant must verify your entry' });
+  db.prepare('UPDATE finance_entries SET status = ?, verified_by = ?, verified_at = ? WHERE id = ?')
+    .run(status, req.user.id, new Date().toISOString(), id);
+  recordAudit(req, status, 'finance_entry', id);
+  res.json(db.prepare('SELECT * FROM finance_entries WHERE id = ?').get(id));
+});
+
+app.delete('/api/finance/:id', requireRoles('accountant'), (req, res) => {
+  const id = Number(req.params.id);
+  const entry = db.prepare('SELECT * FROM finance_entries WHERE id = ?').get(id);
+  if (!entry) return res.status(404).json({ message: 'Finance entry not found' });
+  if (entry.status !== 'pending' || entry.submitted_by !== req.user.id && !hasFullAccess(req.user.roleCode)) return res.status(403).json({ message: 'Only your own pending entries can be removed' });
+  db.prepare('DELETE FROM finance_entries WHERE id = ?').run(id);
+  recordAudit(req, 'delete', 'finance_entry', id);
+  res.json(entry);
+});
+
+app.get('/api/fire-inspections', requireRoles('fire_marshal', 'station'), (req, res) => {
+  res.json(db.prepare(`SELECT i.*, s.name AS station_name, u.name AS inspector_name
+    FROM fire_inspections i LEFT JOIN stations s ON s.id = i.station_id
+    JOIN users u ON u.id = i.inspector_id ORDER BY i.inspected_on DESC, i.id DESC`).all());
+});
+
+app.post('/api/fire-inspections', requireRoles('fire_marshal'), (req, res) => {
+  const { station_id, inspected_on, inspection_type, risk_level, outcome, findings, corrective_action = '', follow_up_date = null } = req.body;
+  if (!validDate(inspected_on) || follow_up_date && !validDate(follow_up_date) || typeof inspection_type !== 'string' || !inspection_type.trim() || !['low', 'moderate', 'high', 'critical'].includes(risk_level) || !['compliant', 'action_required', 'unsafe'].includes(outcome) || typeof findings !== 'string' || !findings.trim()) {
+    return res.status(400).json({ message: 'Provide a valid date, inspection type, risk, outcome, and findings' });
+  }
+  const stationId = station_id ? Number(station_id) : null;
+  if (stationId && !db.prepare('SELECT id FROM stations WHERE id = ?').get(stationId)) return res.status(400).json({ message: 'Choose a valid station' });
+  const result = db.prepare(`INSERT INTO fire_inspections (station_id, inspector_id, inspected_on, inspection_type, risk_level, outcome, findings, corrective_action, follow_up_date, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(stationId, req.user.id, inspected_on, inspection_type.trim().slice(0, 120), risk_level, outcome, findings.trim().slice(0, 2000), String(corrective_action).slice(0, 2000), follow_up_date || null, new Date().toISOString());
+  recordAudit(req, 'create', 'fire_inspection', result.lastInsertRowid);
+  res.status(201).json(db.prepare('SELECT * FROM fire_inspections WHERE id = ?').get(result.lastInsertRowid));
+});
+
+app.put('/api/fire-inspections/:id', requireRoles('fire_marshal'), (req, res) => {
+  const id = Number(req.params.id);
+  const existing = db.prepare('SELECT * FROM fire_inspections WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ message: 'Inspection not found' });
+  const values = {
+    station_id: req.body.station_id ?? existing.station_id,
+    inspected_on: req.body.inspected_on ?? existing.inspected_on,
+    inspection_type: req.body.inspection_type ?? existing.inspection_type,
+    risk_level: req.body.risk_level ?? existing.risk_level,
+    outcome: req.body.outcome ?? existing.outcome,
+    findings: req.body.findings ?? existing.findings,
+    corrective_action: req.body.corrective_action ?? existing.corrective_action,
+    follow_up_date: req.body.follow_up_date ?? existing.follow_up_date
+  };
+  if (!validDate(values.inspected_on) || values.follow_up_date && !validDate(values.follow_up_date) || !['low', 'moderate', 'high', 'critical'].includes(values.risk_level) || !['compliant', 'action_required', 'unsafe'].includes(values.outcome) || typeof values.findings !== 'string' || !values.findings.trim()) return res.status(400).json({ message: 'Invalid inspection details' });
+  const stationId = values.station_id ? Number(values.station_id) : null;
+  if (stationId && !db.prepare('SELECT id FROM stations WHERE id = ?').get(stationId)) return res.status(400).json({ message: 'Choose a valid station' });
+  db.prepare(`UPDATE fire_inspections SET station_id = ?, inspected_on = ?, inspection_type = ?, risk_level = ?, outcome = ?, findings = ?, corrective_action = ?, follow_up_date = ? WHERE id = ?`)
+    .run(stationId, values.inspected_on, String(values.inspection_type).slice(0, 120), values.risk_level, values.outcome, values.findings.trim().slice(0, 2000), String(values.corrective_action).slice(0, 2000), values.follow_up_date || null, id);
+  recordAudit(req, 'update', 'fire_inspection', id);
+  res.json(db.prepare('SELECT * FROM fire_inspections WHERE id = ?').get(id));
+});
+
+app.delete('/api/fire-inspections/:id', requireRoles('fire_marshal'), (req, res) => {
+  const id = Number(req.params.id);
+  const inspection = db.prepare('SELECT * FROM fire_inspections WHERE id = ?').get(id);
+  if (!inspection) return res.status(404).json({ message: 'Inspection not found' });
+  db.prepare('DELETE FROM fire_inspections WHERE id = ?').run(id);
+  recordAudit(req, 'delete', 'fire_inspection', id);
+  res.json(inspection);
 });
 
 app.get('/api/audit', requireRoles('admin'), (req, res) => {
@@ -918,6 +1081,8 @@ app.get('/api/dashboard', (req, res) => {
   const pendingLeave = db.prepare("SELECT COUNT(*) AS count FROM leave_requests WHERE status = 'pending'").get().count;
   const trainingUpcoming = db.prepare("SELECT COUNT(*) AS count FROM training_records WHERE status = 'Upcoming'").get().count;
   const performanceGoals = db.prepare("SELECT COUNT(*) AS count FROM performance_goals WHERE status != 'Completed'").get().count;
+  const fireInspections = db.prepare('SELECT COUNT(*) AS count FROM fire_inspections').get().count;
+  const financePending = db.prepare("SELECT COUNT(*) AS count FROM finance_entries WHERE status = 'pending'").get().count;
 
   const stations = db.prepare('SELECT * FROM stations').all().map(normalizeRow);
   const tasks = db.prepare('SELECT t.*, s.name AS assignedStation FROM tasks t LEFT JOIN stations s ON t.assigned_station_id = s.id').all().map(taskRowToObject);
@@ -944,6 +1109,8 @@ app.get('/api/dashboard', (req, res) => {
     pendingLeave,
     trainingUpcoming,
     performanceGoals,
+    fireInspections,
+    financePending,
     stations,
     tasks,
     incidents,
@@ -1022,7 +1189,7 @@ app.get('/api/incidents', (req, res) => {
   res.json(db.prepare('SELECT * FROM incidents').all().map(incidentRowToObject));
 });
 
-app.post('/api/incidents', requireRoles('admin', 'station', 'shift', 'officer'), (req, res) => {
+app.post('/api/incidents', requireRoles('admin', 'station', 'shift', 'officer', 'fire_marshal'), (req, res) => {
   const { type, location, date, officers, vehicles, equipment, media, report } = req.body;
   const officersJson = JSON.stringify(Array.isArray(officers) ? officers : String(officers || '').split(',').map(o => o.trim()).filter(Boolean));
   const vehiclesJson = JSON.stringify(Array.isArray(vehicles) ? vehicles : String(vehicles || '').split(',').map(v => v.trim()).filter(Boolean));
@@ -1160,6 +1327,7 @@ app.delete('/api/feedback/:id', requireRoles('admin'), (req, res) => {
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-app.listen(port, () => {
+app.listen(port, '0.0.0.0', () => {
   console.log(`Zimamoto Management System running at http://localhost:${port}`);
+  console.log(`For phones on the same Wi-Fi, open http://<this-computer-ip>:${port}`);
 });
