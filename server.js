@@ -5,7 +5,7 @@ const Database = require('better-sqlite3');
 
 const app = express();
 const port = process.env.PORT || 3000;
-app.use(express.json());
+app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 const dataDir = path.join(__dirname, 'data');
@@ -29,6 +29,9 @@ function initSchema() {
       name TEXT NOT NULL,
       role_code TEXT NOT NULL,
       station_id INTEGER,
+      avatar TEXT,
+      availability TEXT NOT NULL DEFAULT 'Off duty',
+      status_message TEXT NOT NULL DEFAULT '',
       FOREIGN KEY(role_code) REFERENCES roles(code)
     );
     CREATE TABLE IF NOT EXISTS stations (
@@ -115,6 +118,11 @@ function initSchema() {
       FOREIGN KEY(user_id) REFERENCES users(id)
     );
   `);
+
+  const userColumns = new Set(db.prepare('PRAGMA table_info(users)').all().map(column => column.name));
+  if (!userColumns.has('avatar')) db.exec('ALTER TABLE users ADD COLUMN avatar TEXT');
+  if (!userColumns.has('availability')) db.exec("ALTER TABLE users ADD COLUMN availability TEXT NOT NULL DEFAULT 'Off duty'");
+  if (!userColumns.has('status_message')) db.exec("ALTER TABLE users ADD COLUMN status_message TEXT NOT NULL DEFAULT ''");
 }
 
 function parseJson(value) {
@@ -236,7 +244,7 @@ seedData();
 
 app.post('/api/auth/login', (req, res) => {
   const { checknumber, password } = req.body;
-  const user = db.prepare('SELECT u.id, u.checknumber, u.name, u.role_code AS roleCode, u.station_id, r.label AS role FROM users u JOIN roles r ON u.role_code = r.code WHERE u.checknumber = ? AND u.password = ?').get(checknumber, password);
+  const user = db.prepare('SELECT u.id, u.checknumber, u.name, u.role_code AS roleCode, u.station_id, u.avatar, u.availability, u.status_message, r.label AS role FROM users u JOIN roles r ON u.role_code = r.code WHERE u.checknumber = ? AND u.password = ?').get(checknumber, password);
   if (!user) {
     return res.status(401).json({ message: 'Invalid checknumber or password' });
   }
@@ -254,7 +262,7 @@ app.post('/api/auth/register', (req, res) => {
   }
   try {
     const result = db.prepare('INSERT INTO users (checknumber, password, name, role_code, station_id) VALUES (?, ?, ?, ?, ?)').run(checknumber, password, name, 'officer', null);
-    const user = db.prepare('SELECT u.id, u.checknumber, u.name, u.role_code AS roleCode, u.station_id, r.label AS role FROM users u JOIN roles r ON u.role_code = r.code WHERE u.id = ?').get(result.lastInsertRowid);
+    const user = db.prepare('SELECT u.id, u.checknumber, u.name, u.role_code AS roleCode, u.station_id, u.avatar, u.availability, u.status_message, r.label AS role FROM users u JOIN roles r ON u.role_code = r.code WHERE u.id = ?').get(result.lastInsertRowid);
     res.status(201).json(user);
   } catch (error) {
     res.status(500).json({ message: 'Registration failed' });
@@ -303,6 +311,43 @@ app.post('/api/auth/reset-password', (req, res) => {
 
 app.post('/api/auth/logout', (req, res) => {
   res.json({ message: 'Logged out' });
+});
+
+app.get('/api/users/:id/profile', (req, res) => {
+  const user = db.prepare('SELECT id, checknumber, name, role_code AS roleCode, station_id, avatar, availability, status_message FROM users WHERE id = ?').get(Number(req.params.id));
+  if (!user) return res.status(404).json({ message: 'User not found' });
+  res.json(user);
+});
+
+app.put('/api/users/:id/profile', (req, res) => {
+  const id = Number(req.params.id);
+  const { currentPassword, name, avatar, availability, status_message } = req.body;
+  const existing = db.prepare('SELECT id, password FROM users WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ message: 'User not found' });
+  if (!currentPassword || currentPassword !== existing.password) {
+    return res.status(401).json({ message: 'Current password is incorrect' });
+  }
+  if (typeof name !== 'string' || !name.trim() || name.trim().length > 100) {
+    return res.status(400).json({ message: 'Name is required and must be 100 characters or fewer' });
+  }
+  const allowedAvailability = new Set(['Available', 'On duty', 'Off duty', 'On leave']);
+  if (!allowedAvailability.has(availability)) {
+    return res.status(400).json({ message: 'Choose a valid availability status' });
+  }
+  if (typeof status_message !== 'string' || status_message.length > 120) {
+    return res.status(400).json({ message: 'Status message must be 120 characters or fewer' });
+  }
+  if (avatar !== null && avatar !== '' && (typeof avatar !== 'string' || !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(avatar))) {
+    return res.status(400).json({ message: 'Profile picture must be a PNG, JPEG, or WebP image' });
+  }
+  if (typeof avatar === 'string' && avatar.length > 1400000) {
+    return res.status(413).json({ message: 'Profile picture must be 1 MB or smaller' });
+  }
+
+  db.prepare('UPDATE users SET name = ?, avatar = ?, availability = ?, status_message = ? WHERE id = ?').run(
+    name.trim(), avatar || null, availability, status_message.trim(), id
+  );
+  res.json(db.prepare('SELECT id, checknumber, name, role_code AS roleCode, station_id, avatar, availability, status_message FROM users WHERE id = ?').get(id));
 });
 
 app.get('/api/users', (req, res) => {

@@ -12,6 +12,16 @@ const forgotPasswordError = document.getElementById('forgotPasswordError');
 const languageSelect = document.getElementById('languageSelect');
 const currentUserLabel = document.getElementById('currentUserLabel');
 const signOutBtn = document.getElementById('signOutBtn');
+const editProfileBtn = document.getElementById('editProfileBtn');
+const profileDialog = document.getElementById('profileDialog');
+const profileForm = document.getElementById('profileForm');
+const profilePhotoInput = document.getElementById('profilePhotoInput');
+const profilePhotoPreview = document.getElementById('profilePhotoPreview');
+const profilePhotoInitials = document.getElementById('profilePhotoInitials');
+const headerProfileAvatar = document.getElementById('headerProfileAvatar');
+const headerProfileInitials = document.getElementById('headerProfileInitials');
+const headerProfileStatus = document.getElementById('headerProfileStatus');
+let profileAvatarData = null;
 const menuTitle = document.getElementById('menuTitle');
 const sidebarToggle = document.getElementById('sidebarToggle');
 const dashboardTitle = document.getElementById('dashboardTitle');
@@ -209,6 +219,151 @@ function setAuthenticated(authenticated) {
   loginView.classList.toggle('hidden', authenticated);
   appShell.classList.toggle('hidden', !authenticated);
 }
+
+function profileInitials(name) {
+  return String(name || '?').trim().split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase() || '?';
+}
+
+function renderProfileIdentity(user) {
+  if (!user) return;
+  currentUserLabel.textContent = `${user.name} (${user.role})`;
+  const initials = profileInitials(user.name);
+  [headerProfileInitials, profilePhotoInitials].forEach(element => {
+    element.textContent = initials;
+  });
+  [headerProfileAvatar, profilePhotoPreview].forEach(image => {
+    if (user.avatar) {
+      image.src = user.avatar;
+      image.classList.remove('hidden');
+    } else {
+      image.removeAttribute('src');
+      image.classList.add('hidden');
+    }
+  });
+  headerProfileInitials.classList.toggle('hidden', Boolean(user.avatar));
+  profilePhotoInitials.classList.toggle('hidden', Boolean(user.avatar));
+  const status = [user.availability, user.status_message].filter(Boolean).join(' · ');
+  headerProfileStatus.textContent = status;
+  editProfileBtn.title = status ? `Edit profile — ${status}` : 'Edit profile';
+}
+
+async function refreshCurrentProfile() {
+  if (!currentUser?.id) return;
+  const response = await fetch(`/api/users/${currentUser.id}/profile`);
+  if (!response.ok) throw new Error('Unable to load profile');
+  const profile = await response.json();
+  currentUser = { ...currentUser, ...profile };
+  renderProfileIdentity(currentUser);
+  if (localStorage.getItem('zimamotoUser')) {
+    localStorage.setItem('zimamotoUser', JSON.stringify(currentUser));
+  }
+}
+
+function setProfilePhotoPreview(imageData) {
+  profileAvatarData = imageData;
+  const initials = profileInitials(document.getElementById('profileNameInput').value);
+  profilePhotoInitials.textContent = initials;
+  headerProfileInitials.textContent = initials;
+  [profilePhotoPreview, headerProfileAvatar].forEach(image => {
+    if (imageData) {
+      image.src = imageData;
+      image.classList.remove('hidden');
+    } else {
+      image.removeAttribute('src');
+      image.classList.add('hidden');
+    }
+  });
+  profilePhotoInitials.classList.toggle('hidden', Boolean(imageData));
+  headerProfileInitials.classList.toggle('hidden', Boolean(imageData));
+}
+
+editProfileBtn.addEventListener('click', async () => {
+  const saveMessage = document.getElementById('profileSaveMessage');
+  saveMessage.textContent = '';
+  document.getElementById('profileCurrentPasswordInput').value = '';
+  document.getElementById('profileNameInput').value = currentUser?.name || '';
+  document.getElementById('profileAvailabilityInput').value = currentUser?.availability || 'Off duty';
+  document.getElementById('profileStatusMessageInput').value = currentUser?.status_message || '';
+  profilePhotoInput.value = '';
+  setProfilePhotoPreview(currentUser?.avatar || null);
+  profileDialog.showModal();
+  try {
+    await refreshCurrentProfile();
+    document.getElementById('profileNameInput').value = currentUser.name || '';
+    document.getElementById('profileAvailabilityInput').value = currentUser.availability || 'Off duty';
+    document.getElementById('profileStatusMessageInput').value = currentUser.status_message || '';
+    setProfilePhotoPreview(currentUser.avatar || null);
+  } catch (error) {
+    saveMessage.textContent = error.message;
+    saveMessage.className = 'notification error';
+  }
+});
+
+document.getElementById('closeProfileBtn').addEventListener('click', () => profileDialog.close());
+document.getElementById('cancelProfileBtn').addEventListener('click', () => profileDialog.close());
+
+document.getElementById('profileNameInput').addEventListener('input', () => {
+  if (!profileAvatarData) {
+    const initials = profileInitials(document.getElementById('profileNameInput').value);
+    profilePhotoInitials.textContent = initials;
+    headerProfileInitials.textContent = initials;
+  }
+});
+
+profilePhotoInput.addEventListener('change', () => {
+  const file = profilePhotoInput.files?.[0];
+  if (!file) return;
+  const message = document.getElementById('profileSaveMessage');
+  message.textContent = '';
+  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+    message.textContent = 'Choose a PNG, JPEG, or WebP image.';
+    message.className = 'notification error';
+    profilePhotoInput.value = '';
+    return;
+  }
+  if (file.size > 1024 * 1024) {
+    message.textContent = 'Profile picture must be 1 MB or smaller.';
+    message.className = 'notification error';
+    profilePhotoInput.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.addEventListener('load', () => setProfilePhotoPreview(reader.result));
+  reader.readAsDataURL(file);
+});
+
+document.getElementById('removeProfilePhotoBtn').addEventListener('click', () => {
+  profilePhotoInput.value = '';
+  setProfilePhotoPreview(null);
+});
+
+profileForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  const saveMessage = document.getElementById('profileSaveMessage');
+  saveMessage.textContent = '';
+  saveMessage.className = 'notification';
+  try {
+    const profile = await putJson(`/api/users/${currentUser.id}/profile`, {
+      currentPassword: document.getElementById('profileCurrentPasswordInput').value,
+      name: document.getElementById('profileNameInput').value.trim(),
+      avatar: profileAvatarData,
+      availability: document.getElementById('profileAvailabilityInput').value,
+      status_message: document.getElementById('profileStatusMessageInput').value.trim()
+    });
+    currentUser = { ...currentUser, ...profile };
+    renderProfileIdentity(currentUser);
+    if (localStorage.getItem('zimamotoUser')) {
+      localStorage.setItem('zimamotoUser', JSON.stringify(currentUser));
+    }
+    saveMessage.textContent = 'Profile updated successfully.';
+    saveMessage.className = 'notification success';
+    document.getElementById('profileCurrentPasswordInput').value = '';
+    window.setTimeout(() => profileDialog.close(), 900);
+  } catch (error) {
+    saveMessage.textContent = error.message;
+    saveMessage.className = 'notification error';
+  }
+});
 
 const viewPermissions = {
   admin: ['dashboard', 'stations', 'tasks', 'incidents', 'vehicles', 'equipment', 'shifts', 'feedback', 'reports'],
@@ -792,7 +947,7 @@ loginForm.addEventListener('submit', async (event) => {
       password: passwordInput.value.trim()
     });
     currentUser = user;
-    currentUserLabel.textContent = `${user.name} (${user.role})`;
+    renderProfileIdentity(user);
     if (keepLoggedInCheckbox.checked) {
       localStorage.setItem('zimamotoUser', JSON.stringify(user));
     }
@@ -914,7 +1069,7 @@ registerForm.addEventListener('submit', async (event) => {
 
     const user = await response.json();
     currentUser = user;
-    currentUserLabel.textContent = `${user.name} (${user.role})`;
+    renderProfileIdentity(user);
     if (document.getElementById('keepLoggedIn').checked) {
       localStorage.setItem('zimamotoUser', JSON.stringify(user));
     }
@@ -1007,9 +1162,10 @@ function initialize() {
   const storedUser = localStorage.getItem('zimamotoUser');
   if (storedUser) {
     currentUser = JSON.parse(storedUser);
-    currentUserLabel.textContent = `${currentUser.name} (${currentUser.role})`;
+    renderProfileIdentity(currentUser);
     updateNavForRole(currentUser.roleCode || currentUser.role?.toLowerCase());
     setAuthenticated(true);
+    refreshCurrentProfile().catch(error => console.warn('Profile refresh failed', error));
     loadAllData();
   }
   setTranslations();
