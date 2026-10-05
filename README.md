@@ -11,6 +11,10 @@ A Tanzania Fire and Rescue management prototype with role-based dashboards, stat
 - Task management with assignment, deadlines, priorities, and statuses.
 - Incident logging and vehicle inventory.
 - Shift management and feedback submission.
+- User administration with server-enforced role permissions and account deactivation.
+- Notice board, leave requests and approvals, training management, and personal performance goals.
+- Per-user dark/light theme, language, and notification preferences.
+- Administrator JSON backups and additive import from the standalone dashboard export; account passwords are never imported.
 - English/Kiswahili language toggle.
 
 ## Setup
@@ -40,6 +44,6 @@ npm start
 
 ## Notes
 - Backend data is persisted using SQLite in `data/zimamoto.db`.
-- For production, add authorization, password hashing, secure sessions, and file upload support.
+- The API uses server-side SQLite sessions and role checks for protected writes. For production, use HTTPS, password hashing, email-based password recovery, and external image/file storage.
 # Zimamoto-Managment-System
 # Zimamoto-Managment-System

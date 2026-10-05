@@ -162,8 +162,14 @@
             <button class="nav-btn" data-view="vehicles"><span class="nav-label">Vehicles</span></button>
             <button class="nav-btn" data-view="equipment"><span class="nav-label">Equipment</span></button>
             <button class="nav-btn" data-view="shifts"><span class="nav-label">Shifts</span></button>
+            <button class="nav-btn" data-view="notices"><span class="nav-label">Notices</span></button>
+            <button class="nav-btn" data-view="users"><span class="nav-label">Users & Roles</span></button>
+            <button class="nav-btn" data-view="leave"><span class="nav-label">Leave</span></button>
+            <button class="nav-btn" data-view="training"><span class="nav-label">Training</span></button>
+            <button class="nav-btn" data-view="performance"><span class="nav-label">Performance</span></button>
             <button class="nav-btn" data-view="feedback"><span class="nav-label">Feedback</span></button>
             <button class="nav-btn" data-view="reports"><span class="nav-label">Reports</span></button>
+            <button class="nav-btn" data-view="settings"><span class="nav-label">Settings</span></button>
           </nav>
         </div>
       </aside>
@@ -228,6 +234,92 @@
           <div id="shiftsList" class="table-container"></div>
         </section>
 
+        <section id="noticesView" class="view">
+          <div class="view-header"><div><h2>Notice Board</h2><p class="view-description">Official announcements and operational updates.</p></div><button id="newNoticeBtn" class="primary hidden" type="button">Create Notice</button></div>
+          <form id="noticeForm" class="module-form hidden">
+            <input id="noticeId" type="hidden">
+            <label for="noticeTitleInput">Title</label><input id="noticeTitleInput" maxlength="200" required>
+            <label for="noticeMessageInput">Message</label><textarea id="noticeMessageInput" rows="3" maxlength="2000"></textarea>
+            <div class="module-form-grid">
+              <label>Type<select id="noticeTypeInput"><option value="info">Information</option><option value="alert">Alert</option><option value="warning">Warning</option><option value="event">Event</option></select></label>
+              <label>Date<input id="noticeDateInput" type="date" required></label>
+            </div>
+            <div class="form-actions"><button class="secondary" id="cancelNoticeEditBtn" type="button">Cancel</button><button class="primary" type="submit">Save Notice</button></div>
+          </form>
+          <div id="noticesList" class="table-container"></div>
+        </section>
+
+        <section id="usersView" class="view">
+          <div class="view-header"><div><h2>User Administration</h2><p class="view-description">Manage staff accounts, roles, and station assignments.</p></div><button id="newUserBtn" class="primary hidden" type="button">Add User</button></div>
+          <form id="userForm" class="module-form hidden">
+            <input id="managedUserId" type="hidden">
+            <h3 id="userFormTitle">Create Staff Account</h3>
+            <div class="module-form-grid">
+              <label>Full name<input id="managedUserName" maxlength="100" required></label>
+              <label>Username / checknumber<input id="managedUserChecknumber" maxlength="80" required></label>
+              <label>Password (required for new account)<input id="managedUserPassword" type="password" minlength="6"></label>
+              <label>Email<input id="managedUserEmail" type="email" maxlength="200"></label>
+              <label>Phone<input id="managedUserPhone" maxlength="40"></label>
+              <label>Role<select id="managedUserRole" required></select></label>
+              <label>Station<select id="managedUserStation"><option value="">No station</option></select></label>
+              <label class="check-row"><input id="managedUserActive" type="checkbox" checked> Account active</label>
+            </div>
+            <div class="form-actions"><button class="secondary" id="cancelUserEditBtn" type="button">Cancel</button><button class="primary" type="submit">Save Account</button></div>
+            <div id="userFormMessage" class="notification"></div>
+          </form>
+          <div id="usersList" class="table-container"></div>
+        </section>
+
+        <section id="leaveView" class="view">
+          <div class="view-header"><div><h2>Leave Requests</h2><p class="view-description">Submit requests and follow their approval status.</p></div></div>
+          <form id="leaveForm" class="module-form">
+            <div class="module-form-grid">
+              <label>Leave type<select id="leaveTypeInput"><option>Annual</option><option>Sick</option><option>Family</option><option>Emergency</option><option>Other</option></select></label>
+              <label>From<input id="leaveStartInput" type="date" required></label>
+              <label>To<input id="leaveEndInput" type="date" required></label>
+            </div>
+            <label>Reason<textarea id="leaveReasonInput" rows="3" maxlength="1000" required></textarea></label>
+            <div class="form-actions"><button class="primary" type="submit">Submit Request</button></div>
+            <div id="leaveFormMessage" class="notification"></div>
+          </form>
+          <div id="leaveList" class="table-container"></div>
+        </section>
+
+        <section id="trainingView" class="view">
+          <div class="view-header"><div><h2>Training Management</h2><p class="view-description">Schedule training and track participation.</p></div><button id="newTrainingBtn" class="primary hidden" type="button">Schedule Training</button></div>
+          <form id="trainingForm" class="module-form hidden">
+            <input id="trainingId" type="hidden">
+            <div class="module-form-grid">
+              <label>Training name<input id="trainingNameInput" maxlength="200" required></label>
+              <label>Coordinator<input id="trainingCoordinatorInput" maxlength="120" required></label>
+              <label>Date<input id="trainingDateInput" type="date" required></label>
+              <label>Location<input id="trainingLocationInput" maxlength="200" required></label>
+              <label>Participants<input id="trainingParticipantsInput" type="number" min="1" max="10000" value="1" required></label>
+              <label>Status<select id="trainingStatusInput"><option>Upcoming</option><option>In Progress</option><option>Completed</option><option>Cancelled</option></select></label>
+            </div>
+            <label>Description<textarea id="trainingDescriptionInput" rows="3" maxlength="2000"></textarea></label>
+            <div class="form-actions"><button class="secondary" id="cancelTrainingEditBtn" type="button">Cancel</button><button class="primary" type="submit">Save Training</button></div>
+          </form>
+          <div id="trainingList" class="table-container"></div>
+        </section>
+
+        <section id="performanceView" class="view">
+          <div class="view-header"><div><h2>Performance Goals</h2><p class="view-description">Set measurable goals and track progress.</p></div></div>
+          <form id="performanceForm" class="module-form">
+            <input id="performanceId" type="hidden">
+            <div class="module-form-grid">
+              <label>Goal<input id="performanceNameInput" maxlength="200" required></label>
+              <label>Measure<input id="performanceMetricInput" maxlength="200"></label>
+              <label>Deadline<input id="performanceDeadlineInput" type="date" required></label>
+              <label>Progress (%)<input id="performanceProgressInput" type="number" min="0" max="100" value="0" required></label>
+              <label>Status<select id="performanceStatusInput"><option>Pending</option><option>In Progress</option><option>Completed</option></select></label>
+            </div>
+            <div class="form-actions"><button class="secondary hidden" id="cancelPerformanceEditBtn" type="button">Cancel</button><button class="primary" type="submit">Save Goal</button></div>
+            <div id="performanceFormMessage" class="notification"></div>
+          </form>
+          <div id="performanceList" class="table-container"></div>
+        </section>
+
         <section id="feedbackView" class="view">
           <div class="view-header">
             <h2 id="feedbackTitle">Feedback</h2>
@@ -247,6 +339,25 @@
         <section id="reportsView" class="view">
           <h2 id="reportsTitle">Reports & Analytics</h2>
           <div class="report-cards" id="reportCards"></div>
+        </section>
+
+        <section id="settingsView" class="view">
+          <div class="view-header"><div><h2>System Settings</h2><p class="view-description">Personal preferences and administrator data tools.</p></div></div>
+          <form id="settingsForm" class="module-form settings-form">
+            <div class="module-form-grid">
+              <label>Appearance<select id="settingsTheme"><option value="dark">Dark</option><option value="light">Light</option></select></label>
+              <label>Language<select id="settingsLanguage"><option value="sw">Kiswahili</option><option value="en">English</option></select></label>
+              <label class="check-row"><input id="settingsEmailNotifications" type="checkbox"> Email notifications</label>
+              <label class="check-row"><input id="settingsPushNotifications" type="checkbox"> Browser notifications</label>
+            </div>
+            <div class="form-actions"><button class="primary" type="submit">Save Preferences</button></div>
+            <div id="settingsFormMessage" class="notification"></div>
+          </form>
+          <div class="settings-tools admin-only">
+            <div class="settings-tool"><div><h3>Export backup</h3><p>Download a JSON backup of operational records.</p></div><button id="exportBackupBtn" class="secondary" type="button">Export JSON</button></div>
+            <div class="settings-tool"><div><h3>Import backup</h3><p>Import a standalone dashboard or Zimamoto JSON export. Records are added without replacing existing data. Passwords and accounts are never imported; manage staff accounts above.</p></div><label class="secondary import-file-label">Choose JSON<input id="importBackupInput" type="file" accept="application/json,.json" hidden></label></div>
+            <div id="backupMessage" class="notification"></div>
+          </div>
         </section>
       </section>
     </main>
