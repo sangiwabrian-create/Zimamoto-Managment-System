@@ -575,7 +575,7 @@ function showDetails(title, details) {
 }
 
 function actionButtonsHtml(id, type, label) {
-  return `<div class="row-actions"><button class="secondary action-btn" data-action="${type}" data-id="${id}">${label}</button></div>`;
+  return `<span class="row-actions"><button class="secondary action-btn" data-action="${type}" data-id="${id}">${label}</button></span>`;
 }
 
 function renderStations(data) {
