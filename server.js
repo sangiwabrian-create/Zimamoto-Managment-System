@@ -561,8 +561,14 @@ app.put('/api/users/:id/profile', (req, res) => {
 app.get('/api/users', (req, res) => {
   if (!hasFullAccess(req.user.roleCode) && req.user.roleCode !== 'hr') return res.status(403).json({ message: 'HR or administrator access required' });
   const rows = db.prepare(`SELECT u.id, u.checknumber, u.name, u.email, u.phone, r.label AS role,
-    u.role_code AS roleCode, u.station_id, u.active, u.availability
+    u.role_code AS roleCode, u.station_id, u.active
     FROM users u JOIN roles r ON u.role_code = r.code ORDER BY u.name`).all();
+  res.json(rows);
+});
+
+app.get('/api/staff-status', requireRoles('admin', 'system_manager'), (_req, res) => {
+  const rows = db.prepare(`SELECT u.id, u.name, u.checknumber, u.availability, u.status_message, r.label AS role
+    FROM users u JOIN roles r ON r.code = u.role_code ORDER BY u.name`).all();
   res.json(rows);
 });
 
