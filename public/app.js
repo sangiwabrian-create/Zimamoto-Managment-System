@@ -1074,7 +1074,7 @@ async function loadUsers() {
 }
 
 function renderLeave(data) {
-  const canReview = ['admin', 'station', 'shift'].includes(currentUser?.roleCode);
+  const canReview = ['admin', 'system_manager', 'station', 'shift', 'hr'].includes(currentUser?.roleCode);
   const rows = data.map(item => [
     escapeHtml(item.employee || currentUser.name), escapeHtml(item.leave_type), `${escapeHtml(item.start_date)} – ${escapeHtml(item.end_date)}`,
     escapeHtml(item.reason), `<span class="status-pill ${escapeHtml(item.status)}">${escapeHtml(item.status)}</span>`,

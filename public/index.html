@@ -9,15 +9,28 @@
 <body>
   <div id="loginView" class="login-view">
     <div class="login-container">
-      <div class="login-brand">
-        <div class="coat-of-arms"></div>
-        <div>
-          <span>THE UNITED REPUBLIC OF TANZANIA</span>
-          <h1>ZIMAMOTO MBEYA FIRE AND RESCUE</h1>
-          <p>Fire & Rescue Management System</p>
-        </div>
-      </div>
-      <div class="login-card">
+      <div class="login-layout">
+        <section class="login-showcase" aria-label="Zimamoto Mbeya">
+          <div class="login-brand">
+            <div class="coat-of-arms"></div>
+            <div>
+              <span>THE UNITED REPUBLIC OF TANZANIA</span>
+              <h1>ZIMAMOTO MBEYA FIRE AND RESCUE</h1>
+              <p>Fire & Rescue Management System</p>
+            </div>
+          </div>
+          <div class="login-artwork-frame">
+            <img id="loginArtwork" class="login-artwork hidden" alt="Zimamoto Mbeya login page artwork">
+            <div id="loginArtworkPlaceholder" class="login-artwork-placeholder" aria-hidden="true">
+              <div class="artwork-ring artwork-ring-one"></div>
+              <div class="artwork-ring artwork-ring-two"></div>
+              <div class="artwork-flame">Z</div>
+              <div class="artwork-stripe"></div>
+            </div>
+          </div>
+        </section>
+        <div class="login-panel">
+          <div class="login-card">
         <h2 id="authFormTitle">Sign In to Zimamoto Mbeya</h2>
         
         <!-- Login Form -->
@@ -69,6 +82,8 @@
             <button type="button" id="submitResetBtn" class="primary">Reset Password</button>
           </div>
         </form>
+          </div>
+        </div>
       </div>
       <footer class="login-footer">
         <span>© 2026 Zimamoto Mbeya</span>
@@ -395,6 +410,23 @@
             <div id="settingsFormMessage" class="notification"></div>
           </form>
           <div class="settings-tools admin-only">
+            <div class="settings-tool login-artwork-tool">
+              <div>
+                <h3>Login page picture</h3>
+                <p>Choose the artwork shown on the public sign-in page. PNG, JPEG, or WebP; maximum 2 MB.</p>
+                <div class="login-artwork-preview-frame">
+                  <img id="loginArtworkSettingsPreview" class="login-artwork-settings-preview hidden" alt="Login page picture preview">
+                  <span id="loginArtworkSettingsPlaceholder">No custom picture selected</span>
+                </div>
+              </div>
+              <div class="login-artwork-controls">
+                <label class="secondary import-file-label" for="loginArtworkInput">Choose picture</label>
+                <input id="loginArtworkInput" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+                <button id="removeLoginArtworkBtn" class="secondary" type="button">Remove picture</button>
+                <button id="saveLoginArtworkBtn" class="primary" type="button">Save picture</button>
+              </div>
+              <div id="loginArtworkMessage" class="notification" role="status"></div>
+            </div>
             <div class="settings-tool"><div><h3>Export backup</h3><p>Download a JSON backup of operational records.</p></div><button id="exportBackupBtn" class="secondary" type="button">Export JSON</button></div>
             <div class="settings-tool"><div><h3>Import backup</h3><p>Import a standalone dashboard or Zimamoto JSON export. Records are added without replacing existing data. Passwords and accounts are never imported; manage staff accounts above.</p></div><label class="secondary import-file-label">Choose JSON<input id="importBackupInput" type="file" accept="application/json,.json" hidden></label></div>
             <div id="backupMessage" class="notification"></div>
