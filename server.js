@@ -176,6 +176,13 @@ function initSchema() {
       push_notifications INTEGER NOT NULL DEFAULT 1,
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     );
+    CREATE TABLE IF NOT EXISTS system_assets (
+      asset_key TEXT PRIMARY KEY,
+      asset_value TEXT NOT NULL,
+      updated_by INTEGER,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY(updated_by) REFERENCES users(id) ON DELETE SET NULL
+    );
     CREATE TABLE IF NOT EXISTS audit_logs (
       id INTEGER PRIMARY KEY,
       user_id INTEGER,
@@ -357,6 +364,11 @@ const supportedRoles = [
 ];
 const ensureRoles = db.prepare('INSERT OR IGNORE INTO roles (code, label) VALUES (?, ?)');
 supportedRoles.forEach(role => ensureRoles.run(...role));
+
+app.get('/api/public/login-artwork', (_req, res) => {
+  const asset = db.prepare("SELECT asset_value FROM system_assets WHERE asset_key = 'login_artwork'").get();
+  res.json({ image: asset?.asset_value || null });
+});
 
 function hasFullAccess(roleCode) {
   return roleCode === 'admin' || roleCode === 'system_manager';
