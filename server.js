@@ -238,9 +238,19 @@ function initSchema() {
       FOREIGN KEY(station_id) REFERENCES stations(id) ON DELETE SET NULL,
       FOREIGN KEY(inspector_id) REFERENCES users(id)
     );
+    CREATE TABLE IF NOT EXISTS attendance_periods (
+      id INTEGER PRIMARY KEY,
+      month_key TEXT UNIQUE NOT NULL,
+      status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'closed')),
+      created_at TEXT NOT NULL,
+      closed_at TEXT,
+      closed_by INTEGER,
+      FOREIGN KEY(closed_by) REFERENCES users(id)
+    );
     CREATE TABLE IF NOT EXISTS attendance (
       id INTEGER PRIMARY KEY,
       attendance_date TEXT NOT NULL,
+      period_id INTEGER,
       user_id INTEGER,
       regional_personnel_id INTEGER,
       status TEXT NOT NULL,
@@ -249,6 +259,7 @@ function initSchema() {
       updated_at TEXT NOT NULL,
       CHECK ((user_id IS NOT NULL AND regional_personnel_id IS NULL) OR
         (user_id IS NULL AND regional_personnel_id IS NOT NULL)),
+      FOREIGN KEY(period_id) REFERENCES attendance_periods(id),
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
       FOREIGN KEY(regional_personnel_id) REFERENCES regional_personnel(id) ON DELETE CASCADE,
       FOREIGN KEY(updated_by) REFERENCES users(id)
@@ -266,6 +277,9 @@ function initSchema() {
   if (!userColumns.has('active')) db.exec('ALTER TABLE users ADD COLUMN active INTEGER NOT NULL DEFAULT 1');
   if (!userColumns.has('email')) db.exec('ALTER TABLE users ADD COLUMN email TEXT');
   if (!userColumns.has('phone')) db.exec('ALTER TABLE users ADD COLUMN phone TEXT');
+  const attendanceColumns = new Set(db.prepare('PRAGMA table_info(attendance)').all().map(column => column.name));
+  if (!attendanceColumns.has('period_id')) db.exec('ALTER TABLE attendance ADD COLUMN period_id INTEGER REFERENCES attendance_periods(id)');
+  db.exec('CREATE INDEX IF NOT EXISTS attendance_period_date ON attendance(period_id, attendance_date)');
 }
 
 function parseJson(value) {
@@ -408,6 +422,36 @@ const supportedRoles = [
 const ensureRoles = db.prepare('INSERT OR IGNORE INTO roles (code, label) VALUES (?, ?)');
 supportedRoles.forEach(role => ensureRoles.run(...role));
 
+function tanzaniaDate(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Dar_es_Salaam',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(now);
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function ensureAttendancePeriod(monthKey) {
+  const timestamp = new Date().toISOString();
+  db.prepare("INSERT OR IGNORE INTO attendance_periods (month_key, status, created_at) VALUES (?, 'open', ?)")
+    .run(monthKey, timestamp);
+  return db.prepare('SELECT id, month_key AS month, status, closed_at AS closedAt, closed_by AS closedBy FROM attendance_periods WHERE month_key = ?')
+    .get(monthKey);
+}
+
+function initializeAttendancePeriods() {
+  const months = db.prepare('SELECT DISTINCT substr(attendance_date, 1, 7) AS month FROM attendance').all();
+  months.forEach(({ month }) => ensureAttendancePeriod(month));
+  ensureAttendancePeriod(tanzaniaDate().slice(0, 7));
+  db.prepare(`UPDATE attendance SET period_id = (
+    SELECT id FROM attendance_periods WHERE month_key = substr(attendance.attendance_date, 1, 7)
+  ) WHERE period_id IS NULL`).run();
+}
+
+initializeAttendancePeriods();
+
 app.get('/api/public/login-artwork', (_req, res) => {
   const asset = db.prepare("SELECT asset_value FROM system_assets WHERE asset_key = 'login_artwork'").get();
   const gallery = db.prepare("SELECT asset_value FROM system_assets WHERE asset_key = 'login_gallery'").get();
@@ -485,15 +529,8 @@ function validDate(value) {
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
-function tanzaniaDate(now = new Date()) {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Africa/Dar_es_Salaam',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).formatToParts(now);
-  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
-  return `${values.year}-${values.month}-${values.day}`;
+function validMonth(value) {
+  return typeof value === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
 }
 
 app.post('/api/auth/login', (req, res) => {
@@ -679,6 +716,48 @@ app.post('/api/regional-personnel', requireRoles('admin', 'system_manager', 'hr'
   res.status(201).json({ personnelId: result.lastInsertRowid, name: name.trim(), role: roleTitle.trim() });
 });
 
+app.put('/api/regional-personnel/:id', requireRoles('admin', 'system_manager', 'hr'), (req, res) => {
+  const id = Number(req.params.id);
+  const existing = db.prepare('SELECT * FROM regional_personnel WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ message: 'Regional personnel record not found' });
+
+  const { name, role_title: roleTitle, email, phone, station_id: stationId, availability, status_message: statusMessage } = req.body;
+  if (typeof name !== 'string' || !name.trim() || name.trim().length > 100) {
+    return res.status(400).json({ message: 'Name is required and must be 100 characters or fewer' });
+  }
+  if (typeof roleTitle !== 'string' || !roleTitle.trim() || roleTitle.trim().length > 100) {
+    return res.status(400).json({ message: 'Role or position is required and must be 100 characters or fewer' });
+  }
+  if (email != null && (typeof email !== 'string' || email.length > 200)) {
+    return res.status(400).json({ message: 'Email must be 200 characters or fewer' });
+  }
+  if (phone != null && (typeof phone !== 'string' || phone.length > 40)) {
+    return res.status(400).json({ message: 'Phone must be 40 characters or fewer' });
+  }
+  if (stationId != null && stationId !== '') {
+    const parsedStationId = Number(stationId);
+    if (!Number.isInteger(parsedStationId) || parsedStationId < 1 || !db.prepare('SELECT id FROM stations WHERE id = ?').get(parsedStationId)) {
+      return res.status(400).json({ message: 'Choose a valid station' });
+    }
+  }
+  const allowedAvailability = new Set(['Available', 'On duty', 'Off duty', 'On leave']);
+  if (!allowedAvailability.has(availability)) {
+    return res.status(400).json({ message: 'Choose a valid availability status' });
+  }
+  if (typeof statusMessage !== 'string' || statusMessage.length > 120) {
+    return res.status(400).json({ message: 'Status message must be 120 characters or fewer' });
+  }
+
+  db.prepare(`UPDATE regional_personnel
+    SET name = ?, role_title = ?, email = ?, phone = ?, station_id = ?, availability = ?, status_message = ?
+    WHERE id = ?`).run(
+    name.trim(), roleTitle.trim(), email?.trim() || null, phone?.trim() || null,
+    stationId ? Number(stationId) : null, availability, statusMessage.trim(), id
+  );
+  recordAudit(req, 'update', 'regional_personnel', id, `role=${roleTitle.trim()}`);
+  res.json({ personnelId: id, name: name.trim(), role: roleTitle.trim() });
+});
+
 app.post('/api/regional-personnel/import', requireRoles('admin', 'system_manager', 'hr'), (req, res) => {
   const { personnel } = req.body;
   if (!Array.isArray(personnel) || personnel.length === 0 || personnel.length > 500) {
@@ -791,8 +870,76 @@ app.get('/api/attendance', (req, res) => {
   res.json({ date: attendanceDate, records: record ? [record] : [] });
 });
 
+app.get('/api/attendance/monthly', requireRoles('admin', 'system_manager'), (req, res) => {
+  const month = req.query.month || tanzaniaDate().slice(0, 7);
+  const currentMonth = tanzaniaDate().slice(0, 7);
+  if (!validMonth(month) || month > currentMonth) {
+    return res.status(400).json({ message: 'Choose a valid attendance month that is not in the future' });
+  }
+  const period = ensureAttendancePeriod(month);
+  const periodDetails = db.prepare(`SELECT p.id, p.month_key AS month, p.status,
+    p.closed_at AS closedAt, u.name AS closedBy
+    FROM attendance_periods p LEFT JOIN users u ON u.id = p.closed_by
+    WHERE p.id = ?`).get(period.id);
+  const records = db.prepare(`SELECT a.attendance_date AS date,
+    CASE WHEN a.user_id IS NULL THEN 'personnel' ELSE 'user' END AS personType,
+    COALESCE(u.id, rp.id) AS personId, COALESCE(u.name, rp.name) AS name,
+    COALESCE(r.label, rp.role_title) AS role, st.name AS station, a.status,
+    a.check_in_at AS checkInAt, updater.name AS updatedBy, a.updated_at AS updatedAt
+    FROM attendance a
+    LEFT JOIN users u ON u.id = a.user_id
+    LEFT JOIN roles r ON r.code = u.role_code
+    LEFT JOIN regional_personnel rp ON rp.id = a.regional_personnel_id
+    LEFT JOIN stations st ON st.id = COALESCE(u.station_id, rp.station_id)
+    LEFT JOIN users updater ON updater.id = a.updated_by
+    WHERE a.period_id = ?
+    ORDER BY a.attendance_date DESC, name COLLATE NOCASE`).all(period.id);
+  const monthDays = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate();
+  const dailyTotals = new Map();
+  records.forEach(record => {
+    if (!dailyTotals.has(record.date)) dailyTotals.set(record.date, { present: 0, absent: 0, onLeave: 0 });
+    const counts = dailyTotals.get(record.date);
+    if (record.status === 'Present') counts.present += 1;
+    if (record.status === 'Absent') counts.absent += 1;
+    if (record.status === 'On leave') counts.onLeave += 1;
+  });
+  const days = Array.from({ length: monthDays }, (_, index) => {
+    const date = `${month}-${String(index + 1).padStart(2, '0')}`;
+    return { date, ...(dailyTotals.get(date) || { present: 0, absent: 0, onLeave: 0 }) };
+  });
+  const totals = records.reduce((counts, record) => {
+    if (record.status === 'Present') counts.present += 1;
+    if (record.status === 'Absent') counts.absent += 1;
+    if (record.status === 'On leave') counts.onLeave += 1;
+    return counts;
+  }, { present: 0, absent: 0, onLeave: 0 });
+  const staffCount = db.prepare('SELECT (SELECT COUNT(*) FROM users WHERE active = 1) + (SELECT COUNT(*) FROM regional_personnel) AS count').get().count;
+  res.json({ period: periodDetails, currentMonth, staffCount, totals, days, records });
+});
+
+app.post('/api/attendance/monthly/:month/close', requireRoles('admin', 'system_manager'), (req, res) => {
+  const { month } = req.params;
+  const currentMonth = tanzaniaDate().slice(0, 7);
+  if (!validMonth(month) || month >= currentMonth) {
+    return res.status(400).json({ message: 'A month can only be closed after its final calendar day' });
+  }
+  const period = ensureAttendancePeriod(month);
+  if (period.status === 'closed') {
+    return res.status(409).json({ message: 'This attendance month is already closed' });
+  }
+  const closedAt = new Date().toISOString();
+  db.prepare(`UPDATE attendance_periods SET status = 'closed', closed_at = ?, closed_by = ? WHERE id = ?`)
+    .run(closedAt, req.user.id, period.id);
+  recordAudit(req, 'close', 'attendance_period', period.id, `month=${month}`);
+  res.json({ month, status: 'closed', closedAt, closedBy: req.user.name });
+});
+
 app.post('/api/attendance/check-in', (req, res) => {
   const attendanceDate = tanzaniaDate();
+  const period = ensureAttendancePeriod(attendanceDate.slice(0, 7));
+  if (period.status === 'closed') {
+    return res.status(409).json({ message: 'Attendance for this month is closed' });
+  }
   const existing = db.prepare('SELECT id, status, check_in_at AS checkInAt FROM attendance WHERE user_id = ? AND attendance_date = ?')
     .get(req.user.id, attendanceDate);
   if (existing?.status === 'Present') {
@@ -805,8 +952,8 @@ app.post('/api/attendance/check-in', (req, res) => {
       .run(checkInAt, req.user.id, checkInAt, existing.id);
   } else {
     db.prepare(`INSERT INTO attendance
-      (attendance_date, user_id, status, check_in_at, updated_by, updated_at)
-      VALUES (?, ?, 'Present', ?, ?, ?)`).run(attendanceDate, req.user.id, checkInAt, req.user.id, checkInAt);
+      (attendance_date, period_id, user_id, status, check_in_at, updated_by, updated_at)
+      VALUES (?, ?, ?, 'Present', ?, ?, ?)`).run(attendanceDate, period.id, req.user.id, checkInAt, req.user.id, checkInAt);
   }
   const attendanceId = existing?.id || db.prepare('SELECT last_insert_rowid() AS id').get().id;
   recordAudit(req, 'check_in', 'attendance', attendanceId, `date=${attendanceDate}`);
@@ -827,6 +974,10 @@ app.put('/api/attendance/:personType/:personId', requireRoles('admin'), (req, re
   if (!['Present', 'Absent', 'On leave'].includes(status)) {
     return res.status(400).json({ message: 'Choose Present, Absent, or On leave' });
   }
+  const period = ensureAttendancePeriod(attendanceDate.slice(0, 7));
+  if (period.status === 'closed') {
+    return res.status(409).json({ message: 'Attendance for this month is closed' });
+  }
 
   const person = personType === 'user'
     ? db.prepare('SELECT id FROM users WHERE id = ? AND active = 1').get(personId)
@@ -845,8 +996,8 @@ app.put('/api/attendance/:personType/:personId', requireRoles('admin'), (req, re
       .run(status, checkInAt, req.user.id, updatedAt, existing.id);
   } else {
     db.prepare(`INSERT INTO attendance
-      (attendance_date, ${foreignKey}, status, check_in_at, updated_by, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?)`).run(attendanceDate, personId, status, checkInAt, req.user.id, updatedAt);
+      (attendance_date, period_id, ${foreignKey}, status, check_in_at, updated_by, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`).run(attendanceDate, period.id, personId, status, checkInAt, req.user.id, updatedAt);
   }
   const attendanceId = existing?.id || db.prepare('SELECT last_insert_rowid() AS id').get().id;
   recordAudit(req, 'update', 'attendance', attendanceId, `person=${personType}:${personId}; date=${attendanceDate}; status=${status}`);

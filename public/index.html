@@ -259,14 +259,15 @@
           <div id="stationsList" class="table-container"></div>
           <form id="stationOfficersForm" class="module-form hidden">
             <input id="stationOfficersStationId" type="hidden">
+            <p id="stationOfficerSelectionCount" class="staff-selection-count" role="status"></p>
             <h3 id="stationOfficersTitle">Manage station officers</h3>
-            <p class="view-description">Select any number of active staff members. Each person can be assigned to one station; selecting someone assigned elsewhere moves them here, and unchecking removes them from this station.</p>
+            <p id="stationOfficerDescription" class="view-description">Select any number of active staff members. Each person can be assigned to one station; selecting someone assigned elsewhere moves them here, and unchecking removes them from this station.</p>
             <label for="stationOfficerSearch">Search staff</label>
             <input id="stationOfficerSearch" type="search" placeholder="Search by name or role">
             <div id="stationOfficerChoices" class="staff-choice-list"></div>
             <div class="form-actions">
               <button id="cancelStationOfficersBtn" class="secondary" type="button">Cancel</button>
-              <button class="primary" type="submit">Save Officers</button>
+              <button id="saveStationOfficersBtn" class="primary" type="submit">Save officer assignments</button>
             </div>
             <div id="stationOfficersMessage" class="notification" role="status"></div>
           </form>
@@ -316,12 +317,12 @@
           <div class="view-header">
             <div>
               <h2 id="attendanceTitle">Daily Attendance</h2>
-              <p class="view-description">Sign in for today. Attendance times are recorded by the server using East Africa Time.</p>
+              <p id="attendanceDescription" class="view-description">Sign in for today. Attendance times are recorded by the server using East Africa Time.</p>
             </div>
           </div>
           <section class="attendance-checkin-card" aria-labelledby="attendanceCheckinTitle">
             <div>
-              <span class="attendance-kicker">YOUR ATTENDANCE</span>
+              <span id="attendanceKicker" class="attendance-kicker">YOUR ATTENDANCE</span>
               <h3 id="attendanceCheckinTitle">Today</h3>
               <p id="attendanceCheckinStatus" role="status">Loading your attendance…</p>
             </div>
@@ -330,18 +331,36 @@
           <section id="attendanceAdminPanel" class="attendance-admin-panel hidden">
             <div class="attendance-admin-heading">
               <div>
-                <h3>Regional daily register</h3>
-                <p class="view-description">Review active accounts and regional personnel. Mark attendance for the selected date.</p>
+                <h3 id="attendanceRegisterTitle">Regional daily register</h3>
+                <p id="attendanceRegisterDescription" class="view-description">Review active accounts and regional personnel. Mark attendance for the selected date.</p>
               </div>
               <div class="attendance-filters">
-                <label for="attendanceDateInput">Attendance date
+                <label for="attendanceDateInput"><span id="attendanceDateLabel">Attendance date</span>
                   <input id="attendanceDateInput" type="date">
                 </label>
-                <label for="attendanceSearchInput">Find staff
+                <label for="attendanceMonthInput"><span id="attendanceMonthLabel">Attendance month</span>
+                  <input id="attendanceMonthInput" type="month">
+                </label>
+                <label for="attendanceSearchInput"><span id="attendanceSearchLabel">Find staff</span>
                   <input id="attendanceSearchInput" type="search" placeholder="Search name, role, or station">
                 </label>
+                <div class="attendance-admin-actions">
+                  <button id="closeAttendanceMonthBtn" class="secondary" type="button">Close completed month</button>
+                  <button id="printAttendanceBtn" class="secondary" type="button">Print attendance</button>
+                </div>
               </div>
             </div>
+            <p id="attendanceInputFeedback" class="notification error hidden" role="alert"></p>
+            <p id="attendancePeriodStatus" class="attendance-period-status" role="status"></p>
+            <section class="attendance-monthly-report" aria-labelledby="attendanceMonthlyTitle">
+              <h4 id="attendanceMonthlyTitle">Monthly attendance summary</h4>
+              <div id="attendanceMonthlySummary" class="summary-grid"></div>
+              <div id="attendanceChart" class="attendance-chart-wrap"></div>
+              <h4 id="attendanceHistoryTitle">All attendance records for this month</h4>
+              <p id="attendanceHistoryDescription" class="view-description">Every saved check-in and administrator update for the selected month.</p>
+              <div id="attendanceMonthlyList" class="table-container"></div>
+            </section>
+            <h4 id="attendanceDailyTitle">Staff attendance for selected day</h4>
             <div id="attendanceSummary" class="summary-grid"></div>
             <div id="attendanceList" class="table-container"></div>
           </section>
@@ -389,11 +408,11 @@
           <div class="view-header regional-personnel-header">
             <div>
               <h2>Regional Personnel</h2>
-              <p class="view-description">A clear, printable view of staff accounts and regional personnel records.</p>
+              <p id="regionalPersonnelDescription" class="view-description">A clear, printable view of staff accounts and regional personnel records.</p>
             </div>
             <div class="regional-personnel-actions">
               <button id="printRegionalPersonnelBtn" class="secondary" type="button">Print roster</button>
-              <label class="secondary upload-logo-button">Use official logo
+              <label id="regionalPersonnelLogoLabel" class="secondary upload-logo-button">Use official logo
                 <input id="regionalPersonnelLogoInput" type="file" accept="image/png,image/jpeg,image/webp">
               </label>
               <button id="uploadRegionalPersonnelCsvBtn" class="secondary" type="button">Import CSV</button>
@@ -421,20 +440,21 @@
             <div class="form-actions"><button id="confirmRegionalPersonnelImportBtn" class="primary hidden" type="button">Import personnel</button></div>
           </section>
           <form id="regionalPersonnelForm" class="module-form hidden">
-            <h3>Add Personnel Record</h3>
-            <p class="view-description">This adds someone to the regional roster only. It does not create a login account.</p>
+            <input id="regionalPersonnelId" type="hidden">
+            <h3 id="regionalPersonnelFormTitle">Add Personnel Record</h3>
+            <p id="regionalPersonnelFormDescription" class="view-description">This adds someone to the regional roster only. It does not create a login account.</p>
             <div class="module-form-grid">
               <label>Full name<input id="regionalPersonnelName" maxlength="100" required></label>
               <label>Role or position<input id="regionalPersonnelRole" maxlength="100" required></label>
               <label>Email<input id="regionalPersonnelEmail" type="email" maxlength="200"></label>
               <label>Phone<input id="regionalPersonnelPhone" maxlength="40"></label>
               <label>Station<select id="regionalPersonnelStation"><option value="">Unassigned</option></select></label>
-              <label>Availability
+              <label><span id="regionalPersonnelAvailabilityFieldLabel">Availability</span>
                 <select id="regionalPersonnelNewAvailability">
-                  <option>Available</option>
-                  <option>On duty</option>
-                  <option>Off duty</option>
-                  <option>On leave</option>
+                  <option value="Available">Available</option>
+                  <option value="On duty">On duty</option>
+                  <option value="Off duty">Off duty</option>
+                  <option value="On leave">On leave</option>
                 </select>
               </label>
             </div>
@@ -447,7 +467,7 @@
           </form>
           <div id="regionalPersonnelSummary" class="summary-grid"></div>
           <div class="personnel-filters">
-            <label>Availability
+            <label><span id="regionalPersonnelAvailabilityLabel">Availability</span>
               <select id="regionalPersonnelAvailability">
                 <option value="all">All active staff</option>
                 <option value="Available">Available</option>
@@ -456,7 +476,7 @@
                 <option value="On leave">On leave</option>
               </select>
             </label>
-            <label>Search
+            <label><span id="regionalPersonnelSearchLabel">Search</span>
               <input id="regionalPersonnelSearch" type="search" placeholder="Search by name, username, role, or station">
             </label>
           </div>

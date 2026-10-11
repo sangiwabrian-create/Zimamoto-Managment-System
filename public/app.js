@@ -79,18 +79,96 @@ let stationOfficerCandidates = [];
 let pendingRegionalCsvRows = [];
 let regionalPersonnelStations = [];
 let attendanceAdminRecords = [];
+let attendanceMonthlyReport = null;
 
 const translations = {
   en: {
     menu: 'Menu',
     dashboard: 'Dashboard',
     stationManagement: 'Station Management',
+    stationTableColumns: ['Station Name', 'Location', 'Commander', 'Officers', 'Status', 'Actions'],
+    viewRecord: 'View',
+    manageOfficers: 'Manage officers',
+    editRecord: 'Edit',
+    deleteRecord: 'Delete',
     taskManagement: 'Task Management',
     incidentManagement: 'Incident Management',
     vehicleManagement: 'Vehicle Management',
     equipment: 'Equipment & Inventory',
     shiftManagement: 'Shift Management',
     attendance: 'Daily Attendance',
+    attendanceDescription: 'Sign in for today. Attendance times are recorded by the server using East Africa Time.',
+    yourAttendance: 'YOUR ATTENDANCE',
+    regionalRegister: 'Regional daily register',
+    attendanceRegisterDescription: 'Review active accounts and regional personnel. Update attendance for the selected date.',
+    attendanceDate: 'Attendance date',
+    attendanceMonth: 'Attendance month',
+    findStaff: 'Find staff',
+    searchStaffPlaceholder: 'Search name, role, or station',
+    monthlyAttendanceSummary: 'Monthly attendance summary',
+    allAttendanceRecords: 'All attendance records for this month',
+    attendanceHistoryDescription: 'Every saved check-in and administrator update for the selected month.',
+    selectedDayAttendance: 'Staff attendance for selected day',
+    closeAttendanceMonth: 'Close completed month',
+    printAttendance: 'Print attendance',
+    attendancePeriodOpen: (month, isCurrent) => isCurrent
+      ? `${month} is open. A new attendance month starts automatically at the beginning of each month.`
+      : `${month} remains open for review until an administrator closes it.`,
+    attendancePeriodClosed: (month, closedAt, closedBy) => `${month} was closed ${closedAt ? `on ${closedAt}` : ''}${closedBy ? ` by ${closedBy}` : ''}.`,
+    closeAttendanceConfirm: month => `Close attendance for ${month}? This locks its records against further edits.`,
+    attendanceCloseSuccess: 'Attendance month closed.',
+    invalidAttendanceDate: 'Choose a valid attendance date.',
+    invalidAttendanceMonth: 'Choose a valid attendance month.',
+    attendanceMonthlyColumns: ['Date', 'Name', 'Role', 'Station', 'Status', 'Check-in time (EAT)', 'Recorded by'],
+    attendanceChartLabel: 'Daily attendance by status. Bars show present, absent, and on-leave records.',
+    noAttendanceHistory: 'No attendance records have been saved for this month.',
+    attendanceRecordedBy: 'Recorded by',
+    attendanceRecordsTotal: 'Saved records',
+    signInToday: 'Sign in for today',
+    signedIn: 'Signed in',
+    signedInAt: time => `Signed in at ${time}`,
+    notSignedIn: 'You have not signed in today.',
+    onLeaveToday: 'Your attendance is marked as on leave today.',
+    absentToday: 'Your attendance is marked absent. Sign in to update it to present.',
+    recordingSignIn: 'Recording your sign-in…',
+    attendanceColumns: ['Name', 'Role', 'Station', 'Status', 'Check-in time (EAT)', 'Actions'],
+    attendanceStatuses: ['Present', 'Absent', 'On leave'],
+    personnelFieldLabels: ['Full name', 'Role or position', 'Email', 'Phone', 'Station', 'Availability', 'Status message'],
+    regionalPersonnelDescription: 'A clear, printable view of staff accounts and regional personnel records.',
+    regionalPersonnelTitle: 'Regional Personnel',
+    availabilityLabel: 'Availability',
+    searchLabel: 'Search',
+    regionalSearchPlaceholder: 'Search name, username, role, or station',
+    printRoster: 'Print roster',
+    useOfficialLogo: 'Use official logo',
+    importCsv: 'Import CSV',
+    csvTemplate: 'CSV template',
+    addRegionalPersonnel: 'Add Regional Personnel',
+    regionalPersonnelFormDescription: 'This adds someone to the regional roster only. It does not create a login account.',
+    addPersonnelRecord: 'Add Personnel Record',
+    editPersonnelRecord: 'Edit Personnel Record',
+    savePersonnel: 'Save Personnel',
+    personnelAdded: 'Personnel added to the regional roster.',
+    personnelUpdated: 'Personnel record updated.',
+    stationOfficerDescription: 'Select active staff for this station. Selecting someone at another station moves them here; clearing a selection removes them from this station.',
+    searchStaff: 'Search staff',
+    searchStaffPlaceholderStation: 'Search by name or role',
+    noActiveStaff: 'No active staff accounts.',
+    noMatchingStaff: 'No matching active staff members.',
+    selectedStaff: (selected, total) => `${selected} of ${total} active staff selected`,
+    saveOfficerAssignments: 'Save officer assignments',
+    savingAssignments: 'Saving assignments…',
+    officerAssignmentsUpdated: 'Officer assignments updated successfully.',
+    regionalTableColumns: ['Name', 'Username', 'Role', 'Station', 'Availability', 'Status message', 'Record type'],
+    personnelRecord: 'Personnel record',
+    account: 'Account',
+    noLogin: 'No login',
+    unassigned: 'Unassigned',
+    activeStaff: 'Active staff',
+    availableNow: 'Available now',
+    onDuty: 'On duty',
+    onLeave: 'On leave',
+    availabilityFilterOptions: ['All active staff', 'Available', 'On duty', 'Off duty', 'On leave'],
     feedback: 'Feedback',
     reports: 'Reports & Analytics',
     addStation: 'Add Station',
@@ -139,12 +217,89 @@ const translations = {
     menu: 'Menyu',
     dashboard: 'Dashboard',
     stationManagement: 'Usimamizi wa Vituo',
+    stationTableColumns: ['Jina la kituo', 'Mahali', 'Kamanda', 'Askari', 'Hali', 'Vitendo'],
+    viewRecord: 'Angalia',
+    manageOfficers: 'Dhibiti askari',
+    editRecord: 'Hariri',
+    deleteRecord: 'Futa',
     taskManagement: 'Usimamizi wa Task',
     incidentManagement: 'Usimamizi wa Matukio',
     vehicleManagement: 'Usimamizi wa Magari',
     equipment: 'Vifaa & Mali',
     shiftManagement: 'Usimamizi wa Zamu',
     attendance: 'Mahudhurio ya Kila Siku',
+    attendanceDescription: 'Jisajili kwa leo. Muda wa mahudhurio unarekodiwa na seva kwa saa za Afrika Mashariki.',
+    yourAttendance: 'MAHUDHURIO YAKO',
+    regionalRegister: 'Daftari la mahudhurio ya mkoa',
+    attendanceRegisterDescription: 'Kagua akaunti hai na watumishi wa mkoa. Sasisha mahudhurio kwa tarehe iliyochaguliwa.',
+    attendanceDate: 'Tarehe ya mahudhurio',
+    attendanceMonth: 'Mwezi wa mahudhurio',
+    findStaff: 'Tafuta mtumishi',
+    searchStaffPlaceholder: 'Tafuta jina, wadhifa au kituo',
+    monthlyAttendanceSummary: 'Muhtasari wa mahudhurio ya mwezi',
+    allAttendanceRecords: 'Rekodi zote za mahudhurio ya mwezi huu',
+    attendanceHistoryDescription: 'Kila usajili na sasisho la msimamizi lililohifadhiwa kwa mwezi uliochaguliwa.',
+    selectedDayAttendance: 'Mahudhurio ya watumishi kwa siku iliyochaguliwa',
+    closeAttendanceMonth: 'Funga mwezi uliokamilika',
+    printAttendance: 'Chapisha mahudhurio',
+    attendancePeriodOpen: (month, isCurrent) => isCurrent
+      ? `${month} uko wazi. Mwezi mpya wa mahudhurio utaanza moja kwa moja mwanzoni mwa kila mwezi.`
+      : `${month} uko wazi kwa ukaguzi hadi msimamizi atakapoufunga.`,
+    attendancePeriodClosed: (month, closedAt, closedBy) => `${month} ulifungwa ${closedAt ? `tarehe ${closedAt}` : ''}${closedBy ? ` na ${closedBy}` : ''}.`,
+    closeAttendanceConfirm: month => `Funga mahudhurio ya ${month}? Rekodi zake hazitaweza kusasishwa tena.`,
+    attendanceCloseSuccess: 'Mwezi wa mahudhurio umefungwa.',
+    invalidAttendanceDate: 'Chagua tarehe halali ya mahudhurio.',
+    invalidAttendanceMonth: 'Chagua mwezi halali wa mahudhurio.',
+    attendanceMonthlyColumns: ['Tarehe', 'Jina', 'Wadhifa', 'Kituo', 'Hali', 'Muda wa kuingia (EAT)', 'Imerekodiwa na'],
+    attendanceChartLabel: 'Mahudhurio ya kila siku kwa hali. Michoro inaonyesha waliopo, wasiokuwepo na walio likizo.',
+    noAttendanceHistory: 'Hakuna rekodi za mahudhurio zilizohifadhiwa kwa mwezi huu.',
+    attendanceRecordedBy: 'Imerekodiwa na',
+    attendanceRecordsTotal: 'Rekodi zilizohifadhiwa',
+    signInToday: 'Jisajili leo',
+    signedIn: 'Umejisajili',
+    signedInAt: time => `Umejisajili saa ${time}`,
+    notSignedIn: 'Bado hujajisajili leo.',
+    onLeaveToday: 'Mahudhurio yako yamewekwa kwenye likizo ya leo.',
+    absentToday: 'Mahudhurio yako yamewekwa kuwa haupo. Jisajili ili kubadilisha kuwa yupo.',
+    recordingSignIn: 'Inarekodi usajili wako…',
+    attendanceColumns: ['Jina', 'Wadhifa', 'Kituo', 'Hali', 'Muda wa kuingia (EAT)', 'Vitendo'],
+    attendanceStatuses: ['Yupo', 'Hayupo', 'Likizo'],
+    personnelFieldLabels: ['Jina kamili', 'Wadhifa', 'Barua pepe', 'Simu', 'Kituo', 'Upatikanaji', 'Ujumbe wa hali'],
+    regionalPersonnelDescription: 'Orodha safi ya akaunti za watumishi na rekodi za watumishi wa mkoa, tayari kuchapishwa.',
+    regionalPersonnelTitle: 'Watumishi wa Mkoa',
+    availabilityLabel: 'Upatikanaji',
+    searchLabel: 'Tafuta',
+    regionalSearchPlaceholder: 'Tafuta jina, jina la mtumiaji, wadhifa au kituo',
+    printRoster: 'Chapisha orodha',
+    useOfficialLogo: 'Tumia nembo rasmi',
+    importCsv: 'Ingiza CSV',
+    csvTemplate: 'Kiolezo cha CSV',
+    addRegionalPersonnel: 'Ongeza Mtumishi wa Mkoa',
+    regionalPersonnelFormDescription: 'Hii huongeza mtu kwenye orodha ya mkoa pekee; haifungui akaunti ya kuingia.',
+    addPersonnelRecord: 'Ongeza Rekodi ya Mtumishi',
+    editPersonnelRecord: 'Hariri Rekodi ya Mtumishi',
+    savePersonnel: 'Hifadhi Mtumishi',
+    personnelAdded: 'Mtumishi ameongezwa kwenye orodha ya mkoa.',
+    personnelUpdated: 'Rekodi ya mtumishi imesasishwa.',
+    stationOfficerDescription: 'Chagua watumishi walio hai kwa kituo hiki. Ukimchagua aliye kituo kingine, atahamishiwa hapa; ukiondoa uteuzi, ataondolewa kituoni.',
+    searchStaff: 'Tafuta watumishi',
+    searchStaffPlaceholderStation: 'Tafuta kwa jina au wadhifa',
+    noActiveStaff: 'Hakuna akaunti za watumishi zilizo hai.',
+    noMatchingStaff: 'Hakuna watumishi walio hai wanaolingana na utafutaji.',
+    selectedStaff: (selected, total) => `Watumishi ${selected} kati ya ${total} walio hai wamechaguliwa`,
+    saveOfficerAssignments: 'Hifadhi ugawaji wa askari',
+    savingAssignments: 'Inahifadhi ugawaji…',
+    officerAssignmentsUpdated: 'Ugawaji wa askari umesasishwa.',
+    regionalTableColumns: ['Jina', 'Jina la mtumiaji', 'Wadhifa', 'Kituo', 'Upatikanaji', 'Ujumbe wa hali', 'Aina ya rekodi'],
+    personnelRecord: 'Rekodi ya mtumishi',
+    account: 'Akaunti',
+    noLogin: 'Hana akaunti ya kuingia',
+    unassigned: 'Hajapangiwa',
+    activeStaff: 'Watumishi hai',
+    availableNow: 'Wanapatikana sasa',
+    onDuty: 'Zamu kazini',
+    onLeave: 'Likizo',
+    availabilityFilterOptions: ['Watumishi wote walio hai', 'Wanapatikana', 'Zamu kazini', 'Hawapo kazini', 'Likizo'],
     feedback: 'Maoni',
     reports: 'Ripoti & Analytics',
     addStation: 'Ongeza Kituo',
@@ -205,6 +360,57 @@ function setTranslations() {
   equipmentTitle.textContent = t.equipment;
   shiftsTitle.textContent = t.shiftManagement;
   document.getElementById('attendanceTitle').textContent = t.attendance;
+  document.getElementById('attendanceDescription').textContent = t.attendanceDescription;
+  document.getElementById('attendanceKicker').textContent = t.yourAttendance;
+  document.getElementById('attendanceRegisterTitle').textContent = t.regionalRegister;
+  document.getElementById('attendanceRegisterDescription').textContent = t.attendanceRegisterDescription;
+  document.getElementById('attendanceDateLabel').textContent = t.attendanceDate;
+  document.getElementById('attendanceMonthLabel').textContent = t.attendanceMonth;
+  document.getElementById('attendanceSearchLabel').textContent = t.findStaff;
+  document.getElementById('attendanceSearchInput').placeholder = t.searchStaffPlaceholder;
+  document.getElementById('attendanceMonthlyTitle').textContent = t.monthlyAttendanceSummary;
+  document.getElementById('attendanceHistoryTitle').textContent = t.allAttendanceRecords;
+  document.getElementById('attendanceHistoryDescription').textContent = t.attendanceHistoryDescription;
+  document.getElementById('attendanceDailyTitle').textContent = t.selectedDayAttendance;
+  document.getElementById('closeAttendanceMonthBtn').textContent = t.closeAttendanceMonth;
+  document.getElementById('printAttendanceBtn').textContent = t.printAttendance;
+  document.getElementById('attendanceCheckInBtn').textContent = t.signInToday;
+  document.getElementById('regionalPersonnelDescription').textContent = t.regionalPersonnelDescription;
+  document.querySelector('#regionalPersonnelView .regional-personnel-header h2').textContent = t.regionalPersonnelTitle;
+  document.getElementById('regionalPersonnelAvailabilityFieldLabel').textContent = t.availabilityLabel;
+  document.getElementById('regionalPersonnelAvailabilityLabel').textContent = t.availabilityLabel;
+  document.getElementById('regionalPersonnelSearchLabel').textContent = t.searchLabel;
+  document.getElementById('regionalPersonnelSearch').placeholder = t.regionalSearchPlaceholder;
+  document.getElementById('printRegionalPersonnelBtn').textContent = t.printRoster;
+  document.getElementById('regionalPersonnelLogoLabel').childNodes[0].textContent = `${t.useOfficialLogo} `;
+  document.getElementById('uploadRegionalPersonnelCsvBtn').textContent = t.importCsv;
+  document.getElementById('downloadRegionalPersonnelTemplateBtn').textContent = t.csvTemplate;
+  newRegionalPersonnelBtn.textContent = t.addRegionalPersonnel;
+  document.getElementById('regionalPersonnelFormDescription').textContent = t.regionalPersonnelFormDescription;
+  Array.from(document.querySelectorAll('#regionalPersonnelForm .module-form-grid > label')).forEach((label, index) => {
+    if (label.firstChild?.nodeType === Node.TEXT_NODE) label.firstChild.textContent = `${t.personnelFieldLabels[index]}\n`;
+  });
+  const statusMessageLabel = document.getElementById('regionalPersonnelStatusMessage').parentElement;
+  if (statusMessageLabel.firstChild?.nodeType === Node.TEXT_NODE) statusMessageLabel.firstChild.textContent = `${t.personnelFieldLabels.at(-1)} `;
+  if (!document.getElementById('regionalPersonnelId').value) {
+    document.getElementById('regionalPersonnelFormTitle').textContent = t.addPersonnelRecord;
+  }
+  document.querySelector('#regionalPersonnelForm .form-actions .primary').textContent = t.savePersonnel;
+  Array.from(document.getElementById('regionalPersonnelAvailability').options).forEach((option, index) => {
+    option.textContent = t.availabilityFilterOptions[index];
+  });
+  const personnelAvailabilityLabels = currentLanguage === 'sw'
+    ? ['Wanapatikana', 'Zamu kazini', 'Hawapo kazini', 'Likizo']
+    : ['Available', 'On duty', 'Off duty', 'On leave'];
+  Array.from(document.getElementById('regionalPersonnelNewAvailability').options).forEach((option, index) => {
+    option.textContent = personnelAvailabilityLabels[index];
+  });
+  document.getElementById('stationOfficerDescription').textContent = t.stationOfficerDescription;
+  document.getElementById('stationOfficerSearch').previousElementSibling.textContent = t.searchStaff;
+  document.getElementById('stationOfficerSearch').placeholder = t.searchStaffPlaceholderStation;
+  document.getElementById('saveStationOfficersBtn').textContent = t.saveOfficerAssignments;
+  document.getElementById('cancelStationOfficersBtn').textContent = currentLanguage === 'sw' ? 'Ghairi' : 'Cancel';
+  document.getElementById('cancelRegionalPersonnelBtn').textContent = currentLanguage === 'sw' ? 'Ghairi' : 'Cancel';
   feedbackTitle.textContent = t.feedback;
   reportsTitle.textContent = t.reports;
   document.querySelector('#noticesView h2').textContent = t.notices;
@@ -244,6 +450,16 @@ function createSummaryCard(label, value) {
   valueElement.textContent = String(value);
   card.append(labelElement, valueElement);
   return card;
+}
+
+function translateAvailability(value) {
+  if (currentLanguage !== 'sw') return value;
+  return ({
+    Available: 'Anapatikana',
+    'On duty': 'Zamu kazini',
+    'Off duty': 'Hayupo kazini',
+    'On leave': 'Likizo'
+  })[value] || value;
 }
 
 function escapeHtml(value) {
@@ -867,10 +1083,10 @@ function renderStations(data) {
     escapeHtml(station.commander),
     escapeHtml(station.officers.join(', ')),
     escapeHtml(station.status),
-    `${actionButtonsHtml(station.id, 'view-station', 'View')}${canManage ? actionButtonsHtml(station.id, 'manage-station-officers', 'Manage officers') + actionButtonsHtml(station.id, 'edit-station', 'Edit') + actionButtonsHtml(station.id, 'delete-station', 'Delete') : ''}`
+    `${actionButtonsHtml(station.id, 'view-station', translations[currentLanguage].viewRecord)}${canManage ? actionButtonsHtml(station.id, 'manage-station-officers', translations[currentLanguage].manageOfficers) + actionButtonsHtml(station.id, 'edit-station', translations[currentLanguage].editRecord) + actionButtonsHtml(station.id, 'delete-station', translations[currentLanguage].deleteRecord) : ''}`
   ]);
   stationsList.innerHTML = '';
-  const table = createTable(['Station Name', 'Location', 'Commander', 'Officers', 'Status', 'Actions'], rows);
+  const table = createTable(translations[currentLanguage].stationTableColumns, rows);
   stationsList.appendChild(table);
   attachActionButtons(stationsList, '.action-btn[data-action="view-station"]', async (id) => {
     const station = data.find(item => item.id === Number(id));
@@ -914,17 +1130,17 @@ function renderStationOfficerChoices() {
   const container = document.getElementById('stationOfficerChoices');
   container.innerHTML = stationOfficerCandidates.map(user => {
     const otherStation = user.stationName && Number(user.station_id) !== stationId
-      ? ` · Currently at ${escapeHtml(user.stationName)}`
+      ? ` · ${currentLanguage === 'sw' ? 'Kwa sasa kituo cha' : 'Currently at'} ${escapeHtml(user.stationName)}`
       : '';
     return `
       <label class="staff-choice-item">
         <input type="checkbox" name="stationOfficerIds" value="${user.id}" ${Number(user.station_id) === stationId ? 'checked' : ''}>
-        <span>${escapeHtml(user.name)}<small>${escapeHtml(user.role)} · ${escapeHtml(user.availability || 'Off duty')}${otherStation}</small></span>
+        <span>${escapeHtml(user.name)}<small>${escapeHtml(user.role)} · ${escapeHtml(translateAvailability(user.availability || 'Off duty'))}${otherStation}</small></span>
       </label>
     `;
-  }).join('') || '<p>No active staff accounts.</p>';
+  }).join('') || `<p>${escapeHtml(translations[currentLanguage].noActiveStaff)}</p>`;
   if (stationOfficerCandidates.length) {
-    container.insertAdjacentHTML('beforeend', '<p id="stationOfficerNoMatches" class="hidden">No matching active staff members.</p>');
+    container.insertAdjacentHTML('beforeend', `<p id="stationOfficerNoMatches" class="hidden">${escapeHtml(translations[currentLanguage].noMatchingStaff)}</p>`);
   }
   filterStationOfficerChoices();
 }
@@ -948,9 +1164,10 @@ async function showStationOfficerManager(station) {
   try {
     stationOfficerCandidates = await getJson(`/api/stations/${station.id}/officer-candidates`);
     document.getElementById('stationOfficersStationId').value = station.id;
-    document.getElementById('stationOfficersTitle').textContent = `Manage officers — ${station.name}`;
+    document.getElementById('stationOfficersTitle').textContent = `${currentLanguage === 'sw' ? 'Dhibiti askari' : 'Manage officers'} — ${station.name}`;
     document.getElementById('stationOfficerSearch').value = '';
     renderStationOfficerChoices();
+    updateStationOfficerSelectionCount();
     form.classList.remove('hidden');
     form.scrollIntoView({ behavior: 'smooth', block: 'center' });
   } catch (error) {
@@ -958,15 +1175,21 @@ async function showStationOfficerManager(station) {
   }
 }
 
+function updateStationOfficerSelectionCount() {
+  const selected = document.querySelectorAll('#stationOfficerChoices input[name="stationOfficerIds"]:checked').length;
+  const total = stationOfficerCandidates.length;
+  document.getElementById('stationOfficerSelectionCount').textContent = translations[currentLanguage].selectedStaff(selected, total);
+}
+
 function renderRegionalPersonnel() {
   const availableCount = regionalPersonnelRecords.filter(user => user.availability === 'Available').length;
   const onDutyCount = regionalPersonnelRecords.filter(user => user.availability === 'On duty').length;
   const onLeaveCount = regionalPersonnelRecords.filter(user => user.availability === 'On leave').length;
   regionalPersonnelSummary.replaceChildren(
-    createSummaryCard('Active staff', regionalPersonnelRecords.length),
-    createSummaryCard('Available now', availableCount),
-    createSummaryCard('On duty', onDutyCount),
-    createSummaryCard('On leave', onLeaveCount)
+    createSummaryCard(translations[currentLanguage].activeStaff, regionalPersonnelRecords.length),
+    createSummaryCard(translations[currentLanguage].availableNow, availableCount),
+    createSummaryCard(translations[currentLanguage].onDuty, onDutyCount),
+    createSummaryCard(translations[currentLanguage].onLeave, onLeaveCount)
   );
 
   const selectedAvailability = document.getElementById('regionalPersonnelAvailability').value;
@@ -986,15 +1209,21 @@ function renderRegionalPersonnel() {
     }[availability] || 'off-duty';
     return [
       escapeHtml(user.name),
-      escapeHtml(user.checknumber || 'No login'),
+      escapeHtml(user.checknumber || translations[currentLanguage].noLogin),
       escapeHtml(user.role),
-      escapeHtml(user.stationName || 'Unassigned'),
-      `<span class="availability-pill ${availabilityClass}">${escapeHtml(availability)}</span>`,
+      escapeHtml(user.stationName || translations[currentLanguage].unassigned),
+      `<span class="availability-pill ${availabilityClass}">${escapeHtml(translateAvailability(availability))}</span>`,
       escapeHtml(user.status_message || '—'),
-      escapeHtml(user.recordType)
+      user.recordType === 'Personnel record'
+        ? `<div class="personnel-record-cell"><span>${escapeHtml(translations[currentLanguage].personnelRecord)}</span>${actionButtonsHtml(user.personnelId, 'edit-regional-personnel', currentLanguage === 'sw' ? 'Hariri' : 'Edit')}</div>`
+        : `<span>${escapeHtml(translations[currentLanguage].account)}</span>`
     ];
   });
-  regionalPersonnelList.replaceChildren(createTable(['Name', 'Username', 'Role', 'Station', 'Availability', 'Status message', 'Record type'], rows));
+  regionalPersonnelList.replaceChildren(createTable(translations[currentLanguage].regionalTableColumns, rows));
+  attachActionButtons(regionalPersonnelList, '.action-btn[data-action="edit-regional-personnel"]', id => {
+    const record = regionalPersonnelRecords.find(user => Number(user.personnelId) === Number(id));
+    if (record) showRegionalPersonnelEditor(record);
+  });
 }
 
 async function loadRegionalPersonnel() {
@@ -1671,27 +1900,168 @@ function getTanzaniaDate(date = new Date()) {
 
 function formatAttendanceTime(timestamp) {
   if (!timestamp) return '—';
-  return `${new Intl.DateTimeFormat('en-GB', {
+  const parsedTimestamp = new Date(timestamp);
+  if (Number.isNaN(parsedTimestamp.getTime())) return '—';
+  return `${new Intl.DateTimeFormat(currentLanguage === 'sw' ? 'sw-TZ' : 'en-GB', {
     timeZone: 'Africa/Dar_es_Salaam',
     dateStyle: 'medium',
     timeStyle: 'short'
-  }).format(new Date(timestamp))} EAT`;
+  }).format(parsedTimestamp)} EAT`;
+}
+
+function isAttendanceDate(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsedDate = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsedDate.getTime()) && parsedDate.toISOString().slice(0, 10) === value;
+}
+
+function isAttendanceMonth(value) {
+  return typeof value === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
+}
+
+function formatAttendanceMonth(month) {
+  const [year, monthNumber] = month.split('-').map(Number);
+  return new Intl.DateTimeFormat(currentLanguage === 'sw' ? 'sw-TZ' : 'en-GB', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC'
+  }).format(new Date(Date.UTC(year, monthNumber - 1, 1)));
+}
+
+function renderAttendanceChart(days, label) {
+  const chart = document.getElementById('attendanceChart');
+  chart.replaceChildren();
+  const width = 960;
+  const height = 260;
+  const left = 30;
+  const right = 12;
+  const top = 16;
+  const bottom = 34;
+  const plotWidth = width - left - right;
+  const plotHeight = height - top - bottom;
+  const maxValue = Math.max(1, ...days.map(day => day.present + day.absent + day.onLeave));
+  const step = plotWidth / days.length;
+  const barWidth = Math.max(3, step * 0.62);
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', label);
+  svg.classList.add('attendance-chart');
+
+  const baseline = document.createElementNS(svg.namespaceURI, 'line');
+  baseline.setAttribute('x1', String(left));
+  baseline.setAttribute('x2', String(width - right));
+  baseline.setAttribute('y1', String(top + plotHeight));
+  baseline.setAttribute('y2', String(top + plotHeight));
+  baseline.setAttribute('class', 'attendance-chart-baseline');
+  svg.appendChild(baseline);
+
+  days.forEach((day, index) => {
+    const x = left + index * step + (step - barWidth) / 2;
+    let y = top + plotHeight;
+    [['present', 'present'], ['absent', 'absent'], ['onLeave', 'on-leave']].forEach(([key, className]) => {
+      const segmentHeight = day[key] / maxValue * plotHeight;
+      if (segmentHeight <= 0) return;
+      y -= segmentHeight;
+      const rect = document.createElementNS(svg.namespaceURI, 'rect');
+      rect.setAttribute('x', String(x));
+      rect.setAttribute('y', String(y));
+      rect.setAttribute('width', String(barWidth));
+      rect.setAttribute('height', String(segmentHeight));
+      rect.setAttribute('class', `attendance-chart-bar ${className}`);
+      rect.setAttribute('aria-label', `${day.date}: ${day[key]} ${key}`);
+      svg.appendChild(rect);
+    });
+    const dayNumber = Number(day.date.slice(-2));
+    if (dayNumber === 1 || dayNumber % 5 === 0) {
+      const text = document.createElementNS(svg.namespaceURI, 'text');
+      text.setAttribute('x', String(x + barWidth / 2));
+      text.setAttribute('y', String(height - 10));
+      text.setAttribute('text-anchor', 'middle');
+      text.setAttribute('class', 'attendance-chart-label');
+      text.textContent = String(dayNumber);
+      svg.appendChild(text);
+    }
+  });
+  chart.appendChild(svg);
+  const t = translations[currentLanguage];
+  const legend = document.createElement('div');
+  legend.className = 'attendance-chart-legend';
+  [['present', t.attendanceStatuses[0]], ['absent', t.attendanceStatuses[1]], ['on-leave', t.attendanceStatuses[2]]].forEach(([className, text]) => {
+    const item = document.createElement('span');
+    item.className = 'attendance-chart-legend-item';
+    const swatch = document.createElement('i');
+    swatch.className = `attendance-chart-swatch ${className}`;
+    item.append(swatch, document.createTextNode(text));
+    legend.appendChild(item);
+  });
+  chart.appendChild(legend);
+}
+
+function renderAttendanceMonthly(report) {
+  attendanceMonthlyReport = report;
+  const t = translations[currentLanguage];
+  const summary = document.getElementById('attendanceMonthlySummary');
+  summary.replaceChildren(
+    createSummaryCard(t.attendanceStatuses[0], report.totals.present),
+    createSummaryCard(t.attendanceStatuses[1], report.totals.absent),
+    createSummaryCard(t.attendanceStatuses[2], report.totals.onLeave),
+    createSummaryCard(t.attendanceRecordsTotal, report.records.length)
+  );
+  renderAttendanceChart(report.days, t.attendanceChartLabel);
+
+  const periodStatus = document.getElementById('attendancePeriodStatus');
+  const monthName = formatAttendanceMonth(report.period.month);
+  periodStatus.textContent = report.period.status === 'closed'
+    ? t.attendancePeriodClosed(monthName, report.period.closedAt ? formatAttendanceTime(report.period.closedAt) : '', report.period.closedBy || '')
+    : t.attendancePeriodOpen(monthName, report.period.month === report.currentMonth);
+  periodStatus.classList.toggle('is-closed', report.period.status === 'closed');
+  periodStatus.classList.toggle('is-open', report.period.status === 'open');
+  const closeButton = document.getElementById('closeAttendanceMonthBtn');
+  closeButton.classList.toggle('hidden', report.period.status === 'closed' || report.period.month >= report.currentMonth);
+
+  const search = document.getElementById('attendanceSearchInput').value.trim().toLowerCase();
+  const records = report.records.filter(record => `${record.name} ${record.role || ''} ${record.station || ''} ${record.updatedBy || ''}`.toLowerCase().includes(search));
+  const rows = records.map(record => {
+    const statusIndex = ['Present', 'Absent', 'On leave'].indexOf(record.status);
+    const displayStatus = statusIndex >= 0 ? t.attendanceStatuses[statusIndex] : record.status;
+    const statusClass = record.status === 'Present' ? 'active' : record.status === 'Absent' ? 'rejected' : 'pending';
+    return [
+      escapeHtml(record.date),
+      escapeHtml(record.name || t.personnelRecord),
+      escapeHtml(record.role || t.personnelRecord),
+      escapeHtml(record.station || t.unassigned),
+      `<span class="status-pill ${statusClass}">${escapeHtml(displayStatus)}</span>`,
+      escapeHtml(formatAttendanceTime(record.checkInAt)),
+      escapeHtml(record.updatedBy || '—')
+    ];
+  });
+  const list = document.getElementById('attendanceMonthlyList');
+  list.replaceChildren(createTable(t.attendanceMonthlyColumns, rows));
+  if (!records.length) {
+    const emptyMessage = document.createElement('p');
+    emptyMessage.className = 'attendance-empty';
+    emptyMessage.textContent = report.records.length
+      ? (currentLanguage === 'sw' ? 'Hakuna rekodi zinazolingana na utafutaji.' : 'No records match this search.')
+      : t.noAttendanceHistory;
+    list.appendChild(emptyMessage);
+  }
 }
 
 function updateAttendanceCheckIn(record, date) {
   const status = record?.status || 'Not signed in';
   const statusElement = document.getElementById('attendanceCheckinStatus');
   const button = document.getElementById('attendanceCheckInBtn');
-  document.getElementById('attendanceCheckinTitle').textContent = `Today · ${date}`;
+  document.getElementById('attendanceCheckinTitle').textContent = `${currentLanguage === 'sw' ? 'Leo' : 'Today'} · ${date}`;
   statusElement.textContent = status === 'Present'
-    ? `Signed in at ${formatAttendanceTime(record.checkInAt)}`
+    ? translations[currentLanguage].signedInAt(formatAttendanceTime(record.checkInAt))
     : status === 'On leave'
-      ? 'Your attendance is marked as on leave today.'
+      ? translations[currentLanguage].onLeaveToday
       : status === 'Absent'
-        ? 'Your attendance is marked absent. Sign in to update it to present.'
-        : 'You have not signed in today.';
+        ? translations[currentLanguage].absentToday
+        : translations[currentLanguage].notSignedIn;
   button.disabled = status === 'Present';
-  button.textContent = status === 'Present' ? 'Signed in' : 'Sign in for today';
+  button.textContent = status === 'Present' ? translations[currentLanguage].signedIn : translations[currentLanguage].signInToday;
 }
 
 function renderAttendanceAdmin(records, date) {
@@ -1702,34 +2072,45 @@ function renderAttendanceAdmin(records, date) {
   const absent = records.filter(record => record.status === 'Absent').length;
   const onLeave = records.filter(record => record.status === 'On leave').length;
   const unrecorded = records.length - present - absent - onLeave;
+  const t = translations[currentLanguage];
   const summary = document.getElementById('attendanceSummary');
   summary.replaceChildren(
-    createSummaryCard('Present', present),
-    createSummaryCard('Absent', absent),
-    createSummaryCard('On leave', onLeave),
-    createSummaryCard('Not recorded', unrecorded)
+    createSummaryCard(t.attendanceStatuses[0], present),
+    createSummaryCard(t.attendanceStatuses[1], absent),
+    createSummaryCard(t.attendanceStatuses[2], onLeave),
+    createSummaryCard(currentLanguage === 'sw' ? 'Haijarekodiwa' : 'Not recorded', unrecorded)
   );
   const rows = filtered.map(record => {
     const status = record.status || 'Not recorded';
     const statusClass = status === 'Present' ? 'active' : status === 'Absent' ? 'rejected' : status === 'On leave' ? 'pending' : '';
-    const buttons = ['Present', 'Absent', 'On leave'].map(option => (
-      `<button type="button" class="secondary attendance-status-button" data-action="set-attendance" data-person-type="${escapeHtml(record.personType)}" data-person-id="${record.personId}" data-status="${escapeHtml(option)}"${status === option ? ' disabled' : ''}>${escapeHtml(option)}</button>`
+    const displayStatus = status === 'Present'
+      ? t.attendanceStatuses[0]
+      : status === 'Absent'
+        ? t.attendanceStatuses[1]
+        : status === 'On leave'
+          ? t.attendanceStatuses[2]
+          : currentLanguage === 'sw' ? 'Haijarekodiwa' : 'Not recorded';
+    const monthIsClosed = attendanceMonthlyReport?.period.month === date.slice(0, 7) && attendanceMonthlyReport.period.status === 'closed';
+    const buttons = ['Present', 'Absent', 'On leave'].map((option, index) => (
+      `<button type="button" class="secondary attendance-status-button" data-action="set-attendance" data-person-type="${escapeHtml(record.personType)}" data-person-id="${record.personId}" data-status="${escapeHtml(option)}"${status === option || monthIsClosed ? ' disabled' : ''}>${escapeHtml(t.attendanceStatuses[index])}</button>`
     )).join('');
     return [
       escapeHtml(record.name),
-      escapeHtml(record.role || 'Regional personnel'),
-      escapeHtml(record.station || 'Unassigned'),
-      `<span class="status-pill ${statusClass}">${escapeHtml(status)}</span>`,
+      escapeHtml(record.role || t.personnelRecord),
+      escapeHtml(record.station || t.unassigned),
+      `<span class="status-pill ${statusClass}">${escapeHtml(displayStatus)}</span>`,
       escapeHtml(formatAttendanceTime(record.checkInAt)),
       `<div class="attendance-row-actions">${buttons}</div>`
     ];
   });
   const list = document.getElementById('attendanceList');
-  list.replaceChildren(createTable(['Name', 'Role', 'Station', 'Status', 'Check-in time (EAT)', 'Update status'], rows));
+  list.replaceChildren(createTable(t.attendanceColumns, rows));
   if (!filtered.length) {
     const emptyMessage = document.createElement('p');
     emptyMessage.className = 'attendance-empty';
-    emptyMessage.textContent = records.length ? 'No staff match this search.' : `No active staff records for ${date}.`;
+    emptyMessage.textContent = records.length
+      ? (currentLanguage === 'sw' ? 'Hakuna mtumishi anayelingana na utafutaji.' : 'No staff match this search.')
+      : `${currentLanguage === 'sw' ? 'Hakuna rekodi za watumishi hai tarehe' : 'No active staff records for'} ${date}.`;
     list.appendChild(emptyMessage);
   }
   list.querySelectorAll('[data-action="set-attendance"]').forEach(button => {
@@ -1753,18 +2134,37 @@ async function loadAttendance(selectedDate) {
   const isAdmin = ['admin', 'system_manager'].includes(currentUser?.roleCode);
   const today = getTanzaniaDate();
   const dateInput = document.getElementById('attendanceDateInput');
+  const monthInput = document.getElementById('attendanceMonthInput');
+  const inputFeedback = document.getElementById('attendanceInputFeedback');
   dateInput.max = today;
-  if (!dateInput.value) dateInput.value = today;
-  const requestedDate = isAdmin ? selectedDate || dateInput.value : today;
+  monthInput.max = today.slice(0, 7);
+  if (isAdmin && selectedDate !== undefined && (!isAttendanceDate(selectedDate) || selectedDate > today)) {
+    inputFeedback.textContent = translations[currentLanguage].invalidAttendanceDate;
+    inputFeedback.classList.remove('hidden');
+    return;
+  }
+  inputFeedback.textContent = '';
+  inputFeedback.classList.add('hidden');
+  const requestedValue = selectedDate || dateInput.value;
+  const requestedDate = isAdmin && isAttendanceDate(requestedValue) && requestedValue <= today
+    ? requestedValue
+    : today;
   if (isAdmin) dateInput.value = requestedDate;
-  const [selectedDay, todayData] = await Promise.all([
+  const requestedMonth = requestedDate.slice(0, 7);
+  if (isAdmin && isAttendanceMonth(requestedMonth)) monthInput.value = requestedMonth;
+  const requests = [
     getJson(`/api/attendance?date=${encodeURIComponent(requestedDate)}`),
     requestedDate === today ? Promise.resolve(null) : getJson(`/api/attendance?date=${encodeURIComponent(today)}`)
-  ]);
+  ];
+  if (isAdmin) requests.push(getJson(`/api/attendance/monthly?month=${encodeURIComponent(requestedMonth)}`));
+  const [selectedDay, todayData, monthlyReport] = await Promise.all(requests);
   const ownRecord = (todayData || selectedDay).records.find(record => record.personType === 'user' && Number(record.personId) === Number(currentUser.id));
   updateAttendanceCheckIn(ownRecord, today);
   document.getElementById('attendanceAdminPanel').classList.toggle('hidden', !isAdmin);
-  if (isAdmin) renderAttendanceAdmin(selectedDay.records, selectedDay.date);
+  if (isAdmin) {
+    renderAttendanceMonthly(monthlyReport);
+    renderAttendanceAdmin(selectedDay.records, selectedDay.date);
+  }
 }
 
 async function loadViewData(viewName) {
@@ -1899,7 +2299,7 @@ function initializeActivityPrinting() {
     header.insertAdjacentHTML('beforeend', '<footer class="activity-print-footer"></footer>');
     view.prepend(header);
 
-    let button = view.querySelector('#printRegionalPersonnelBtn');
+    let button = view.querySelector('#printRegionalPersonnelBtn, #printAttendanceBtn');
     if (button) {
       button.classList.add('activity-print-btn');
     } else {
@@ -2074,21 +2474,34 @@ document.getElementById('regionalPersonnelLogoInput').addEventListener('change',
 });
 setRegionalPersonnelLogo(localStorage.getItem('zimamotoRegionalOfficialLogo'));
 
-newRegionalPersonnelBtn.addEventListener('click', async () => {
+async function showRegionalPersonnelEditor(personnel = null) {
   const form = document.getElementById('regionalPersonnelForm');
+  form.classList.add('hidden');
   try {
     const stations = await getJson('/api/stations');
     const stationSelect = document.getElementById('regionalPersonnelStation');
-    stationSelect.replaceChildren(new Option('Unassigned', ''), ...stations.map(station => new Option(station.name, station.id)));
+    stationSelect.replaceChildren(new Option(translations[currentLanguage].unassigned, ''), ...stations.map(station => new Option(station.name, station.id)));
     form.reset();
-    document.getElementById('regionalPersonnelNewAvailability').value = 'Available';
+    document.getElementById('regionalPersonnelId').value = personnel?.personnelId || '';
+    document.getElementById('regionalPersonnelFormTitle').textContent = personnel
+      ? `${translations[currentLanguage].editPersonnelRecord}: ${personnel.name}`
+      : translations[currentLanguage].addPersonnelRecord;
+    document.getElementById('regionalPersonnelName').value = personnel?.name || '';
+    document.getElementById('regionalPersonnelRole').value = personnel?.role || '';
+    document.getElementById('regionalPersonnelEmail').value = personnel?.email || '';
+    document.getElementById('regionalPersonnelPhone').value = personnel?.phone || '';
+    stationSelect.value = personnel?.station_id || '';
+    document.getElementById('regionalPersonnelNewAvailability').value = personnel?.availability || 'Available';
+    document.getElementById('regionalPersonnelStatusMessage').value = personnel?.status_message || '';
     moduleNotice(document.getElementById('regionalPersonnelFormMessage'), '');
     form.classList.remove('hidden');
     form.scrollIntoView({ behavior: 'smooth', block: 'center' });
   } catch (error) {
     alert(error.message);
   }
-});
+}
+
+newRegionalPersonnelBtn.addEventListener('click', () => showRegionalPersonnelEditor());
 
 document.getElementById('cancelRegionalPersonnelBtn').addEventListener('click', () => {
   document.getElementById('regionalPersonnelForm').classList.add('hidden');
@@ -2096,6 +2509,7 @@ document.getElementById('cancelRegionalPersonnelBtn').addEventListener('click', 
 
 document.getElementById('regionalPersonnelForm').addEventListener('submit', async event => {
   event.preventDefault();
+  const id = document.getElementById('regionalPersonnelId').value;
   const payload = {
     name: document.getElementById('regionalPersonnelName').value.trim(),
     role_title: document.getElementById('regionalPersonnelRole').value.trim(),
@@ -2106,17 +2520,20 @@ document.getElementById('regionalPersonnelForm').addEventListener('submit', asyn
     status_message: document.getElementById('regionalPersonnelStatusMessage').value.trim()
   };
   try {
-    await postJson('/api/regional-personnel', payload);
-    document.getElementById('regionalPersonnelForm').reset();
-    document.getElementById('regionalPersonnelNewAvailability').value = 'Available';
+    const result = id
+      ? await putJson(`/api/regional-personnel/${id}`, payload)
+      : await postJson('/api/regional-personnel', payload);
+    document.getElementById('regionalPersonnelId').value = result.personnelId;
     await loadRegionalPersonnel();
-    moduleNotice(document.getElementById('regionalPersonnelFormMessage'), 'Personnel added to the regional roster.', 'success');
+    moduleNotice(document.getElementById('regionalPersonnelFormMessage'), id ? translations[currentLanguage].personnelUpdated : translations[currentLanguage].personnelAdded, 'success');
+    document.getElementById('regionalPersonnelFormTitle').textContent = `${translations[currentLanguage].editPersonnelRecord}: ${result.name}`;
   } catch (error) {
     moduleNotice(document.getElementById('regionalPersonnelFormMessage'), error.message);
   }
 });
 
 document.getElementById('stationOfficerSearch').addEventListener('input', filterStationOfficerChoices);
+document.getElementById('stationOfficerChoices').addEventListener('change', updateStationOfficerSelectionCount);
 document.getElementById('cancelStationOfficersBtn').addEventListener('click', () => {
   document.getElementById('stationOfficersForm').classList.add('hidden');
 });
@@ -2124,13 +2541,21 @@ document.getElementById('stationOfficersForm').addEventListener('submit', async 
   event.preventDefault();
   const stationId = document.getElementById('stationOfficersStationId').value;
   const officerIds = Array.from(document.querySelectorAll('#stationOfficerChoices input[name="stationOfficerIds"]:checked'), input => Number(input.value));
+  const saveButton = document.getElementById('saveStationOfficersBtn');
+  saveButton.disabled = true;
+  saveButton.textContent = translations[currentLanguage].savingAssignments;
   try {
     await putJson(`/api/stations/${stationId}/officers`, { officer_ids: officerIds });
-    document.getElementById('stationOfficersForm').classList.add('hidden');
     await loadAllData();
-    alert('Station officers updated.');
+    stationOfficerCandidates = await getJson(`/api/stations/${stationId}/officer-candidates`);
+    renderStationOfficerChoices();
+    updateStationOfficerSelectionCount();
+    moduleNotice(document.getElementById('stationOfficersMessage'), translations[currentLanguage].officerAssignmentsUpdated, 'success');
   } catch (error) {
     moduleNotice(document.getElementById('stationOfficersMessage'), error.message);
+  } finally {
+    saveButton.disabled = false;
+    saveButton.textContent = translations[currentLanguage].saveOfficerAssignments;
   }
 });
 document.getElementById('regionalPersonnelAvailability').addEventListener('change', renderRegionalPersonnel);
@@ -2607,6 +3032,8 @@ signOutBtn.addEventListener('click', async () => {
 languageSelect.addEventListener('change', (event) => {
   currentLanguage = event.target.value;
   setTranslations();
+  const activeView = navBtns.find(button => button.classList.contains('active'))?.dataset.view;
+  if (['attendance', 'regionalPersonnel'].includes(activeView)) loadViewData(activeView);
   if (currentUser) fetchJson('/api/settings', 'PUT', { theme: document.body.classList.contains('light-theme') ? 'light' : 'dark', language: currentLanguage }).catch(console.warn);
 });
 
@@ -2618,15 +3045,47 @@ document.getElementById('attendanceDateInput').addEventListener('change', event 
   loadAttendance(event.currentTarget.value);
 });
 
+document.getElementById('attendanceMonthInput').addEventListener('change', event => {
+  const month = event.currentTarget.value;
+  if (!isAttendanceMonth(month) || month > getTanzaniaDate().slice(0, 7)) {
+    const feedback = document.getElementById('attendanceInputFeedback');
+    feedback.textContent = translations[currentLanguage].invalidAttendanceMonth;
+    feedback.classList.remove('hidden');
+    event.currentTarget.value = getTanzaniaDate().slice(0, 7);
+    return;
+  }
+  document.getElementById('attendanceInputFeedback').classList.add('hidden');
+  const today = getTanzaniaDate();
+  const date = month === today.slice(0, 7) ? today : `${month}-01`;
+  document.getElementById('attendanceDateInput').value = date;
+  loadAttendance(date);
+});
+
+document.getElementById('closeAttendanceMonthBtn').addEventListener('click', async event => {
+  const button = event.currentTarget;
+  const month = document.getElementById('attendanceMonthInput').value;
+  if (!isAttendanceMonth(month) || !attendanceMonthlyReport || month >= attendanceMonthlyReport.currentMonth) return;
+  if (!confirm(translations[currentLanguage].closeAttendanceConfirm(formatAttendanceMonth(month)))) return;
+  button.disabled = true;
+  try {
+    await postJson(`/api/attendance/monthly/${encodeURIComponent(month)}/close`, {});
+    await loadAttendance(document.getElementById('attendanceDateInput').value);
+  } catch (error) {
+    alert(error.message);
+    button.disabled = false;
+  }
+});
+
 document.getElementById('attendanceSearchInput').addEventListener('input', () => {
   renderAttendanceAdmin(attendanceAdminRecords, document.getElementById('attendanceDateInput').value);
+  if (attendanceMonthlyReport) renderAttendanceMonthly(attendanceMonthlyReport);
 });
 
 document.getElementById('attendanceCheckInBtn').addEventListener('click', async event => {
   const button = event.currentTarget;
   const status = document.getElementById('attendanceCheckinStatus');
   button.disabled = true;
-  status.textContent = 'Recording your sign-in…';
+  status.textContent = translations[currentLanguage].recordingSignIn;
   try {
     await postJson('/api/attendance/check-in', {});
     await loadAttendance(document.getElementById('attendanceDateInput').value || getTanzaniaDate());

@@ -13,12 +13,14 @@ A Tanzania Fire and Rescue management prototype with role-based dashboards, stat
 - Task management with assignment, deadlines, priorities, and statuses.
 - Incident logging and vehicle inventory.
 - Shift management and feedback submission.
-- Daily attendance sign-in records each account's check-in using the server clock in East Africa Time; administrators can review and update daily attendance for all active accounts and regional personnel, including staff without login accounts.
+- Attendance sign-in records each account's check-in using the server clock in East Africa Time; administrators can review daily staff attendance, view monthly graphs and complete attendance archives, and close finished months.
 - User administration with server-enforced role permissions and account deactivation.
 - Notice board, leave requests and approvals, training management, and personal performance goals.
 - Any signed-in user can submit a leave request; only the regional administrator and HR can list, review, or delete requests. Other roles see no leave records or pending-request totals.
 - Dedicated Human Resources, Accountant, and Fire Marshal roles with role-specific workflows for staff/leave/training, financial ledger verification, and fire-safety inspections.
-- The regional personnel view covers active staff accounts and personnel-only records for this single-region installation; HR and administrators can add individual records or import a validated CSV roster, filter the list, and print a register with an optional locally uploaded official logo.
+- The regional personnel view covers active staff accounts and personnel-only records for this single-region installation; HR and administrators can add/edit individual personnel records or import a validated CSV roster, filter the list, and print a register with an optional locally uploaded official logo.
+- Daily attendance lets each signed-in staff account record one check-in per Tanzania-local day; administrators can review and update active accounts and regional personnel, search every saved monthly record, and lock completed monthly periods. A new period opens automatically when a new Tanzania-local month begins.
+- Station managers can search and update officer assignments, including moving active staff between stations and removing assignments.
 - HR can review the user directory and role catalog without administrator account-edit controls.
 - The login emblem is the Fire and Rescue Force PNG published in the [official Force website masthead](https://zimamoto.go.tz/sites/default/files/inline-images/frf_logo.png).
 - A System Manager role with full administrative access alongside the existing regional administrator role.

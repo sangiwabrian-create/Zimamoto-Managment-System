@@ -3797,6 +3797,18 @@ body.light-theme .action-btn[data-action^="view-"] {
   border-radius: var(--radius);
 }
 
+.staff-selection-count {
+  justify-self: start;
+  padding: 6px 10px;
+  color: var(--text-secondary);
+  background: rgba(233, 71, 36, 0.09);
+  border: 1px solid rgba(233, 71, 36, 0.2);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
 .module-form .staff-choice-item {
   display: flex;
   align-items: center;
@@ -3873,7 +3885,26 @@ body.light-theme .action-btn[data-action^="view-"] {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
+  align-items: center;
   gap: 9px;
+}
+
+.regional-personnel-actions button,
+.regional-personnel-actions .upload-logo-button {
+  min-height: 40px;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.personnel-record-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: max-content;
+}
+
+.personnel-record-cell .row-actions {
+  flex: 0 0 auto;
 }
 
 .upload-logo-button {
@@ -5430,6 +5461,132 @@ body.light-theme #settingsView .login-artwork-controls > label:not(.import-file-
   margin-bottom: 18px;
 }
 
+.attendance-admin-panel h4 {
+  margin: 22px 0 10px;
+  color: var(--text);
+}
+
+.attendance-admin-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.attendance-period-status {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.attendance-period-status.is-open {
+  color: #14532d;
+  background: #dcfce7;
+}
+
+.attendance-period-status.is-closed {
+  color: #7f1d1d;
+  background: #fee2e2;
+}
+
+.attendance-monthly-report {
+  margin: 14px 0 24px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+}
+
+.attendance-monthly-report h4:first-child {
+  margin-top: 0;
+}
+
+.attendance-chart-wrap {
+  margin: 10px 0 18px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.attendance-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 330px;
+}
+
+.attendance-chart-baseline {
+  stroke: var(--border-light);
+  stroke-width: 1;
+}
+
+.attendance-chart-bar.present,
+.attendance-chart-swatch.present {
+  fill: #d62828;
+  background-color: #d62828;
+}
+
+.attendance-chart-bar.absent,
+.attendance-chart-swatch.absent {
+  fill: #f4b400;
+  background-color: #f4b400;
+}
+
+.attendance-chart-bar.on-leave,
+.attendance-chart-swatch.on-leave {
+  fill: #183b63;
+  background-color: #183b63;
+}
+
+.attendance-chart-label {
+  fill: var(--text-secondary);
+  font-size: 11px;
+}
+
+.attendance-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.attendance-chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.attendance-chart-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.attendance-admin-panel .table-container th,
+.attendance-admin-panel .table-container td,
+#regionalPersonnelList th,
+#regionalPersonnelList td {
+  vertical-align: middle;
+  line-height: 1.45;
+}
+
+.attendance-admin-panel .table-container th,
+#regionalPersonnelList th {
+  white-space: normal;
+}
+
+.attendance-admin-panel .table-container table {
+  min-width: 980px;
+}
+
+.attendance-monthly-report .table-container table {
+  min-width: 1100px;
+}
+
 .attendance-row-actions {
   display: flex;
   flex-wrap: wrap;
@@ -5440,6 +5597,8 @@ body.light-theme #settingsView .login-artwork-controls > label:not(.import-file-
   min-height: 32px;
   padding: 5px 8px;
   font-size: 11px;
+  line-height: 1.25;
+  white-space: nowrap;
 }
 
 .attendance-empty {
@@ -5462,6 +5621,11 @@ body.light-theme .attendance-checkin-card p {
   color: var(--text-secondary);
 }
 
+body.light-theme .attendance-monthly-report,
+body.light-theme .attendance-chart-wrap {
+  background: #fff;
+}
+
 @media (max-width: 760px) {
   .attendance-admin-heading {
     align-items: stretch;
@@ -5470,6 +5634,10 @@ body.light-theme .attendance-checkin-card p {
 
   .attendance-filters {
     justify-content: flex-start;
+  }
+
+  .attendance-admin-actions {
+    align-items: center;
   }
 }
 
@@ -5496,5 +5664,14 @@ body.light-theme .attendance-checkin-card p {
   .attendance-filters input {
     width: 100%;
     min-width: 0;
+  }
+
+  .attendance-admin-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .attendance-monthly-report {
+    padding: 12px;
   }
 }
