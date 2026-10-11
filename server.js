@@ -238,6 +238,25 @@ function initSchema() {
       FOREIGN KEY(station_id) REFERENCES stations(id) ON DELETE SET NULL,
       FOREIGN KEY(inspector_id) REFERENCES users(id)
     );
+    CREATE TABLE IF NOT EXISTS attendance (
+      id INTEGER PRIMARY KEY,
+      attendance_date TEXT NOT NULL,
+      user_id INTEGER,
+      regional_personnel_id INTEGER,
+      status TEXT NOT NULL,
+      check_in_at TEXT,
+      updated_by INTEGER NOT NULL,
+      updated_at TEXT NOT NULL,
+      CHECK ((user_id IS NOT NULL AND regional_personnel_id IS NULL) OR
+        (user_id IS NULL AND regional_personnel_id IS NOT NULL)),
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY(regional_personnel_id) REFERENCES regional_personnel(id) ON DELETE CASCADE,
+      FOREIGN KEY(updated_by) REFERENCES users(id)
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS attendance_user_date
+      ON attendance(user_id, attendance_date) WHERE user_id IS NOT NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS attendance_personnel_date
+      ON attendance(regional_personnel_id, attendance_date) WHERE regional_personnel_id IS NOT NULL;
   `);
 
   const userColumns = new Set(db.prepare('PRAGMA table_info(users)').all().map(column => column.name));
@@ -391,7 +410,11 @@ supportedRoles.forEach(role => ensureRoles.run(...role));
 
 app.get('/api/public/login-artwork', (_req, res) => {
   const asset = db.prepare("SELECT asset_value FROM system_assets WHERE asset_key = 'login_artwork'").get();
-  res.json({ image: asset?.asset_value || null });
+  const gallery = db.prepare("SELECT asset_value FROM system_assets WHERE asset_key = 'login_gallery'").get();
+  const savedGallery = gallery ? JSON.parse(gallery.asset_value) : null;
+  const images = Array.isArray(savedGallery) ? savedGallery : savedGallery?.images || (asset?.asset_value ? [asset.asset_value] : []);
+  const interval = Number.isInteger(savedGallery?.interval) ? savedGallery.interval : 6;
+  res.json({ image: asset?.asset_value || null, images, interval });
 });
 
 function hasFullAccess(roleCode) {
@@ -457,7 +480,20 @@ function recordAudit(req, action, entity, recordId, details = '') {
 }
 
 function validDate(value) {
-  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+function tanzaniaDate(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Dar_es_Salaam',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(now);
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 app.post('/api/auth/login', (req, res) => {
@@ -714,6 +750,107 @@ app.get('/api/staff-status', requireRoles('admin', 'system_manager', 'hr'), (_re
   const rows = db.prepare(`SELECT u.id, u.name, u.checknumber, u.availability, u.status_message, r.label AS role
     FROM users u JOIN roles r ON r.code = u.role_code ORDER BY u.name`).all();
   res.json(rows);
+});
+
+app.get('/api/attendance', (req, res) => {
+  const today = tanzaniaDate();
+  const attendanceDate = req.query.date || today;
+  if (!validDate(attendanceDate) || attendanceDate > today) {
+    return res.status(400).json({ message: 'Choose a valid attendance date that is not in the future' });
+  }
+  if (!hasFullAccess(req.user.roleCode) && attendanceDate !== today) {
+    return res.status(403).json({ message: 'You can only view your attendance for today' });
+  }
+
+  if (hasFullAccess(req.user.roleCode)) {
+    const accounts = db.prepare(`SELECT 'user' AS personType, u.id AS personId, u.name,
+      r.label AS role, st.name AS station, a.status, a.check_in_at AS checkInAt
+      FROM users u
+      JOIN roles r ON r.code = u.role_code
+      LEFT JOIN stations st ON st.id = u.station_id
+      LEFT JOIN attendance a ON a.user_id = u.id AND a.attendance_date = ?
+      WHERE u.active = 1`).all(attendanceDate);
+    const personnel = db.prepare(`SELECT 'personnel' AS personType, p.id AS personId, p.name,
+      p.role_title AS role, st.name AS station, a.status, a.check_in_at AS checkInAt
+      FROM regional_personnel p
+      LEFT JOIN stations st ON st.id = p.station_id
+      LEFT JOIN attendance a ON a.regional_personnel_id = p.id AND a.attendance_date = ?`).all(attendanceDate);
+    return res.json({
+      date: attendanceDate,
+      records: [...accounts, ...personnel].sort((a, b) => a.name.localeCompare(b.name))
+    });
+  }
+
+  const record = db.prepare(`SELECT 'user' AS personType, u.id AS personId, u.name,
+    r.label AS role, st.name AS station, a.status, a.check_in_at AS checkInAt
+    FROM users u
+    JOIN roles r ON r.code = u.role_code
+    LEFT JOIN stations st ON st.id = u.station_id
+    LEFT JOIN attendance a ON a.user_id = u.id AND a.attendance_date = ?
+    WHERE u.id = ?`).get(attendanceDate, req.user.id);
+  res.json({ date: attendanceDate, records: record ? [record] : [] });
+});
+
+app.post('/api/attendance/check-in', (req, res) => {
+  const attendanceDate = tanzaniaDate();
+  const existing = db.prepare('SELECT id, status, check_in_at AS checkInAt FROM attendance WHERE user_id = ? AND attendance_date = ?')
+    .get(req.user.id, attendanceDate);
+  if (existing?.status === 'Present') {
+    return res.status(409).json({ message: 'You are already signed in for today', checkInAt: existing.checkInAt });
+  }
+
+  const checkInAt = new Date().toISOString();
+  if (existing) {
+    db.prepare(`UPDATE attendance SET status = 'Present', check_in_at = ?, updated_by = ?, updated_at = ? WHERE id = ?`)
+      .run(checkInAt, req.user.id, checkInAt, existing.id);
+  } else {
+    db.prepare(`INSERT INTO attendance
+      (attendance_date, user_id, status, check_in_at, updated_by, updated_at)
+      VALUES (?, ?, 'Present', ?, ?, ?)`).run(attendanceDate, req.user.id, checkInAt, req.user.id, checkInAt);
+  }
+  const attendanceId = existing?.id || db.prepare('SELECT last_insert_rowid() AS id').get().id;
+  recordAudit(req, 'check_in', 'attendance', attendanceId, `date=${attendanceDate}`);
+  res.status(201).json({ date: attendanceDate, status: 'Present', checkInAt });
+});
+
+app.put('/api/attendance/:personType/:personId', requireRoles('admin'), (req, res) => {
+  const { personType } = req.params;
+  const personId = Number(req.params.personId);
+  const { date: attendanceDate, status } = req.body;
+  if (!['user', 'personnel'].includes(personType) || !Number.isInteger(personId) || personId < 1) {
+    return res.status(400).json({ message: 'Choose a valid staff member' });
+  }
+  const today = tanzaniaDate();
+  if (!validDate(attendanceDate) || attendanceDate > today) {
+    return res.status(400).json({ message: 'Choose a valid attendance date that is not in the future' });
+  }
+  if (!['Present', 'Absent', 'On leave'].includes(status)) {
+    return res.status(400).json({ message: 'Choose Present, Absent, or On leave' });
+  }
+
+  const person = personType === 'user'
+    ? db.prepare('SELECT id FROM users WHERE id = ? AND active = 1').get(personId)
+    : db.prepare('SELECT id FROM regional_personnel WHERE id = ?').get(personId);
+  if (!person) return res.status(404).json({ message: 'Active staff member not found' });
+
+  const foreignKey = personType === 'user' ? 'user_id' : 'regional_personnel_id';
+  const existing = db.prepare(`SELECT id, status, check_in_at AS checkInAt FROM attendance WHERE ${foreignKey} = ? AND attendance_date = ?`)
+    .get(personId, attendanceDate);
+  const checkInAt = status === 'Present'
+    ? (existing?.status === 'Present' ? existing.checkInAt : attendanceDate === today ? new Date().toISOString() : null)
+    : null;
+  const updatedAt = new Date().toISOString();
+  if (existing) {
+    db.prepare(`UPDATE attendance SET status = ?, check_in_at = ?, updated_by = ?, updated_at = ? WHERE id = ?`)
+      .run(status, checkInAt, req.user.id, updatedAt, existing.id);
+  } else {
+    db.prepare(`INSERT INTO attendance
+      (attendance_date, ${foreignKey}, status, check_in_at, updated_by, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)`).run(attendanceDate, personId, status, checkInAt, req.user.id, updatedAt);
+  }
+  const attendanceId = existing?.id || db.prepare('SELECT last_insert_rowid() AS id').get().id;
+  recordAudit(req, 'update', 'attendance', attendanceId, `person=${personType}:${personId}; date=${attendanceDate}; status=${status}`);
+  res.json({ personType, personId, date: attendanceDate, status, checkInAt });
 });
 
 app.post('/api/users', requireRoles('admin'), (req, res) => {
@@ -974,6 +1111,32 @@ app.delete('/api/system/login-artwork', requireRoles('admin', 'system_manager'),
   db.prepare("DELETE FROM system_assets WHERE asset_key = 'login_artwork'").run();
   recordAudit(req, 'delete', 'login_artwork', null);
   res.json({ image: null });
+});
+
+app.put('/api/system/login-gallery', requireRoles('admin', 'system_manager'), (req, res) => {
+  const images = req.body?.images;
+  const interval = Number(req.body?.interval ?? 6);
+  if (!Array.isArray(images) || images.length > 5 || images.some(image =>
+    typeof image !== 'string' ||
+    !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(image) ||
+    image.length > 1700000
+  ) || ![4, 6, 8, 10].includes(interval)) {
+    return res.status(400).json({ message: 'Choose up to five PNG, JPEG, or WebP photos under 1.2 MB each' });
+  }
+  const totalSize = images.reduce((total, image) => total + image.length, 0);
+  if (totalSize > 8500000) return res.status(413).json({ message: 'The complete slideshow must be 6.2 MB or smaller' });
+  db.prepare(`INSERT INTO system_assets (asset_key, asset_value, updated_by, updated_at)
+    VALUES ('login_gallery', ?, ?, ?)
+    ON CONFLICT(asset_key) DO UPDATE SET asset_value = excluded.asset_value, updated_by = excluded.updated_by, updated_at = excluded.updated_at`)
+    .run(JSON.stringify({ images, interval }), req.user.id, new Date().toISOString());
+  recordAudit(req, 'update', 'login_gallery', null);
+  res.json({ images, interval });
+});
+
+app.delete('/api/system/login-gallery', requireRoles('admin', 'system_manager'), (req, res) => {
+  db.prepare("DELETE FROM system_assets WHERE asset_key IN ('login_gallery', 'login_artwork')").run();
+  recordAudit(req, 'delete', 'login_gallery', null);
+  res.json({ images: [] });
 });
 
 app.get('/api/finance', requireRoles('accountant'), (req, res) => {

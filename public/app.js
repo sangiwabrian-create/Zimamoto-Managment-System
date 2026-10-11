@@ -24,7 +24,13 @@ const headerProfileAvatar = document.getElementById('headerProfileAvatar');
 const headerProfileInitials = document.getElementById('headerProfileInitials');
 const headerProfileStatus = document.getElementById('headerProfileStatus');
 let profileAvatarData = null;
-let loginArtworkData = null;
+let loginGalleryData = [];
+let pendingLoginGallery = [];
+let loginSlideIndex = 0;
+let loginSlideshowTimer = null;
+let loginSlideshowInterval = 6;
+const displaySettingsDefaults = { compactTables: false, reduceMotion: false };
+const printSettingsDefaults = { paper: 'a4', orientation: 'landscape', includeLogo: true, includeTimestamp: true, footer: 'Mbeya Fire and Rescue · Official Copy' };
 const menuTitle = document.getElementById('menuTitle');
 const sidebarToggle = document.getElementById('sidebarToggle');
 const dashboardTitle = document.getElementById('dashboardTitle');
@@ -72,6 +78,7 @@ let regionalPersonnelRecords = [];
 let stationOfficerCandidates = [];
 let pendingRegionalCsvRows = [];
 let regionalPersonnelStations = [];
+let attendanceAdminRecords = [];
 
 const translations = {
   en: {
@@ -83,6 +90,7 @@ const translations = {
     vehicleManagement: 'Vehicle Management',
     equipment: 'Equipment & Inventory',
     shiftManagement: 'Shift Management',
+    attendance: 'Daily Attendance',
     feedback: 'Feedback',
     reports: 'Reports & Analytics',
     addStation: 'Add Station',
@@ -117,7 +125,15 @@ const translations = {
     settings: 'System Settings',
     createNotice: 'Create Notice',
     addUser: 'Add User',
-    scheduleTraining: 'Schedule Training'
+    scheduleTraining: 'Schedule Training',
+    emergencyHotline: 'Emergency hotline',
+    heroEyebrow: 'M B E Y A  R E G I O N · OPERATIONS CENTRE',
+    heroTitle: 'Ready to respond.',
+    heroTitleAccent: 'Ready to protect.',
+    heroDescription: 'Regional stations, response teams, incidents and resources — together in one command view.',
+    recordIncident: 'Record an incident',
+    emergencyLine: 'Emergency line',
+    shortcutsLabel: 'Operational shortcuts'
   },
   sw: {
     menu: 'Menyu',
@@ -128,6 +144,7 @@ const translations = {
     vehicleManagement: 'Usimamizi wa Magari',
     equipment: 'Vifaa & Mali',
     shiftManagement: 'Usimamizi wa Zamu',
+    attendance: 'Mahudhurio ya Kila Siku',
     feedback: 'Maoni',
     reports: 'Ripoti & Analytics',
     addStation: 'Ongeza Kituo',
@@ -162,7 +179,14 @@ const translations = {
     settings: 'Mipangilio ya Mfumo',
     createNotice: 'Unda Tangazo',
     addUser: 'Ongeza Mtumiaji',
-    scheduleTraining: 'Panga Mafunzo'
+    scheduleTraining: 'Panga Mafunzo',
+    emergencyHotline: 'Namba ya dharura',
+    heroEyebrow: 'M B E Y A  M K O A · KITUO CHA UENDESHAJI',
+    heroTitle: 'Tayari kuitikia.',
+    heroTitleAccent: 'Tayari kulinda.',
+    heroDescription: 'Vituo, vikosi vya uokoaji, matukio na rasilimali za mkoa — katika kituo kimoja cha uendeshaji.',
+    recordIncident: 'Rekodi tukio',
+    emergencyLine: 'Namba ya dharura'
   }
 };
 
@@ -180,6 +204,7 @@ function setTranslations() {
   vehiclesTitle.textContent = t.vehicleManagement;
   equipmentTitle.textContent = t.equipment;
   shiftsTitle.textContent = t.shiftManagement;
+  document.getElementById('attendanceTitle').textContent = t.attendance;
   feedbackTitle.textContent = t.feedback;
   reportsTitle.textContent = t.reports;
   document.querySelector('#noticesView h2').textContent = t.notices;
@@ -199,6 +224,13 @@ function setTranslations() {
   newTrainingBtn.textContent = t.scheduleTraining;
   feedbackSource.placeholder = t.feedbackSourcePlaceholder;
   document.getElementById('submitFeedbackBtn').textContent = t.submitFeedback;
+  document.querySelector('.emergency-hotline span').textContent = t.emergencyHotline;
+  document.querySelector('.operations-eyebrow').textContent = t.heroEyebrow;
+  document.querySelector('#operationsHeroTitle').innerHTML = `${escapeHtml(t.heroTitle)}<br><span>${escapeHtml(t.heroTitleAccent)}</span>`;
+  document.querySelector('.operations-hero-copy > p').textContent = t.heroDescription;
+  document.getElementById('dashboardRecordIncidentBtn').textContent = t.recordIncident;
+  document.querySelector('.hero-action-secondary').firstChild.textContent = `${t.emergencyLine} `;
+  document.querySelector('.command-shortcuts').setAttribute('aria-label', t.shortcutsLabel || 'Operational shortcuts');
 }
 
 function createSummaryCard(label, value) {
@@ -255,29 +287,105 @@ async function loginUser(credentials) {
   return response.json();
 }
 
-function renderLoginArtwork(imageData) {
+function renderLoginSlideshow(images) {
   const image = document.getElementById('loginArtwork');
   const placeholder = document.getElementById('loginArtworkPlaceholder');
-  image.classList.toggle('hidden', !imageData);
-  placeholder.classList.toggle('hidden', Boolean(imageData));
-  if (imageData) image.src = imageData;
-  else image.removeAttribute('src');
-  const preview = document.getElementById('loginArtworkSettingsPreview');
-  const previewPlaceholder = document.getElementById('loginArtworkSettingsPlaceholder');
-  if (preview && previewPlaceholder) {
-    preview.classList.toggle('hidden', !imageData);
-    previewPlaceholder.classList.toggle('hidden', Boolean(imageData));
-    if (imageData) preview.src = imageData;
-    else preview.removeAttribute('src');
+  const controls = document.getElementById('loginSlideshowControls');
+  const indicators = document.getElementById('loginSlideIndicators');
+  const slides = Array.isArray(images) ? images : [];
+  loginSlideIndex = slides.length ? loginSlideIndex % slides.length : 0;
+  image.classList.toggle('hidden', slides.length === 0);
+  placeholder.classList.toggle('hidden', slides.length > 0);
+  controls.classList.toggle('hidden', slides.length < 2);
+  indicators.replaceChildren(...slides.map((_, index) => {
+    const indicator = document.createElement('button');
+    indicator.type = 'button';
+    indicator.className = 'login-slide-indicator';
+    indicator.setAttribute('aria-label', `Show photo ${index + 1}`);
+    indicator.setAttribute('aria-current', String(index === loginSlideIndex));
+    indicator.addEventListener('click', () => showLoginSlide(index));
+    return indicator;
+  }));
+  if (slides.length) {
+    image.src = slides[loginSlideIndex];
+    image.alt = `Fire and rescue force photo ${loginSlideIndex + 1} of ${slides.length}`;
+  } else {
+    image.removeAttribute('src');
+    image.alt = 'Zimamoto Mbeya login page artwork';
   }
+  if (slides.length > 1) startLoginSlideshow();
+  else stopLoginSlideshow();
+}
+
+function showLoginSlide(index) {
+  if (!loginGalleryData.length) return;
+  loginSlideIndex = (index + loginGalleryData.length) % loginGalleryData.length;
+  const image = document.getElementById('loginArtwork');
+  image.src = loginGalleryData[loginSlideIndex];
+  image.alt = `Fire and rescue force photo ${loginSlideIndex + 1} of ${loginGalleryData.length}`;
+  document.querySelectorAll('.login-slide-indicator').forEach((indicator, i) => {
+    indicator.setAttribute('aria-current', String(i === loginSlideIndex));
+  });
+}
+
+function stopLoginSlideshow() {
+  if (loginSlideshowTimer) window.clearInterval(loginSlideshowTimer);
+  loginSlideshowTimer = null;
+}
+
+function startLoginSlideshow() {
+  stopLoginSlideshow();
+  if (
+    loginGalleryData.length < 2 ||
+    document.hidden ||
+    loginView.classList.contains('hidden') ||
+    document.body.classList.contains('reduce-motion') ||
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
+    document.getElementById('loginSlideshowToggle').getAttribute('aria-pressed') === 'true'
+  ) return;
+  loginSlideshowTimer = window.setInterval(() => showLoginSlide(loginSlideIndex + 1), loginSlideshowInterval * 1000);
+}
+
+function renderLoginGallerySettings(images) {
+  const preview = document.getElementById('loginGallerySettingsPreview');
+  preview.replaceChildren();
+  if (!images.length) {
+    const empty = document.createElement('p');
+    empty.className = 'empty-preview';
+    empty.textContent = 'No slideshow photos selected. The official emblem remains visible.';
+    preview.appendChild(empty);
+    return;
+  }
+  images.forEach((src, index) => {
+    const item = document.createElement('div');
+    item.className = 'login-gallery-preview-item';
+    const thumbnail = document.createElement('img');
+    thumbnail.src = src;
+    thumbnail.alt = `Slideshow photo ${index + 1}`;
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'secondary compact-button';
+    remove.textContent = `Remove ${index + 1}`;
+    remove.setAttribute('aria-label', `Remove slideshow photo ${index + 1}`);
+    remove.addEventListener('click', () => {
+      pendingLoginGallery.splice(index, 1);
+      renderLoginGallerySettings(pendingLoginGallery);
+    });
+    item.append(thumbnail, remove);
+    preview.appendChild(item);
+  });
 }
 
 async function loadLoginArtwork() {
   const response = await fetch('/api/public/login-artwork');
   if (!response.ok) throw new Error('Unable to load login page artwork');
   const payload = await response.json();
-  loginArtworkData = payload.image;
-  renderLoginArtwork(loginArtworkData);
+  loginGalleryData = Array.isArray(payload.images) ? payload.images : payload.image ? [payload.image] : [];
+  loginSlideshowInterval = [4, 6, 8, 10].includes(Number(payload.interval)) ? Number(payload.interval) : 6;
+  document.getElementById('loginSlideshowInterval').value = String(loginSlideshowInterval);
+  pendingLoginGallery = [...loginGalleryData];
+  renderLoginSlideshow(loginGalleryData);
+  renderLoginGallerySettings(pendingLoginGallery);
 }
 
 async function fetchDashboardData() {
@@ -303,6 +411,8 @@ async function sendFeedback(feedback) {
 function setAuthenticated(authenticated) {
   loginView.classList.toggle('hidden', authenticated);
   appShell.classList.toggle('hidden', !authenticated);
+  if (authenticated) stopLoginSlideshow();
+  else startLoginSlideshow();
 }
 
 function profileInitials(name) {
@@ -451,22 +561,22 @@ profileForm.addEventListener('submit', async event => {
 });
 
 const viewPermissions = {
-  admin: ['dashboard', 'stations', 'tasks', 'incidents', 'vehicles', 'equipment', 'shifts', 'notices', 'users', 'regionalPersonnel', 'leave', 'training', 'performance', 'finance', 'inspections', 'feedback', 'reports', 'settings'],
-  system_manager: ['dashboard', 'stations', 'tasks', 'incidents', 'vehicles', 'equipment', 'shifts', 'notices', 'users', 'regionalPersonnel', 'leave', 'training', 'performance', 'finance', 'inspections', 'feedback', 'reports', 'settings'],
-  station: ['dashboard', 'stations', 'tasks', 'incidents', 'vehicles', 'equipment', 'shifts', 'notices', 'leave', 'training', 'performance', 'feedback', 'reports', 'settings'],
-  shift: ['dashboard', 'tasks', 'incidents', 'shifts', 'notices', 'leave', 'training', 'performance', 'feedback', 'reports', 'settings'],
-  officer: ['dashboard', 'tasks', 'incidents', 'notices', 'leave', 'training', 'performance', 'feedback', 'reports', 'settings'],
-  mechanic: ['dashboard', 'vehicles', 'equipment', 'notices', 'leave', 'training', 'performance', 'feedback', 'reports', 'settings'],
-  equipment: ['dashboard', 'equipment', 'notices', 'leave', 'feedback', 'reports', 'settings'],
-  hr: ['dashboard', 'users', 'regionalPersonnel', 'leave', 'training', 'performance', 'notices', 'feedback', 'reports', 'settings'],
-  accountant: ['dashboard', 'finance', 'notices', 'reports', 'settings'],
-  fire_marshal: ['dashboard', 'stations', 'incidents', 'equipment', 'inspections', 'notices', 'reports', 'settings'],
-  viewer: ['dashboard', 'notices', 'reports', 'settings']
+  admin: ['dashboard', 'stations', 'tasks', 'incidents', 'vehicles', 'equipment', 'shifts', 'attendance', 'notices', 'users', 'regionalPersonnel', 'leave', 'training', 'performance', 'finance', 'inspections', 'feedback', 'reports', 'settings'],
+  system_manager: ['dashboard', 'stations', 'tasks', 'incidents', 'vehicles', 'equipment', 'shifts', 'attendance', 'notices', 'users', 'regionalPersonnel', 'leave', 'training', 'performance', 'finance', 'inspections', 'feedback', 'reports', 'settings'],
+  station: ['dashboard', 'stations', 'tasks', 'incidents', 'vehicles', 'equipment', 'shifts', 'attendance', 'notices', 'leave', 'training', 'performance', 'feedback', 'reports', 'settings'],
+  shift: ['dashboard', 'tasks', 'incidents', 'shifts', 'attendance', 'notices', 'leave', 'training', 'performance', 'feedback', 'reports', 'settings'],
+  officer: ['dashboard', 'tasks', 'incidents', 'attendance', 'notices', 'leave', 'training', 'performance', 'feedback', 'reports', 'settings'],
+  mechanic: ['dashboard', 'vehicles', 'equipment', 'attendance', 'notices', 'leave', 'training', 'performance', 'feedback', 'reports', 'settings'],
+  equipment: ['dashboard', 'equipment', 'attendance', 'notices', 'leave', 'feedback', 'reports', 'settings'],
+  hr: ['dashboard', 'users', 'regionalPersonnel', 'attendance', 'leave', 'training', 'performance', 'notices', 'feedback', 'reports', 'settings'],
+  accountant: ['dashboard', 'finance', 'attendance', 'notices', 'reports', 'settings'],
+  fire_marshal: ['dashboard', 'stations', 'incidents', 'equipment', 'inspections', 'attendance', 'notices', 'reports', 'settings'],
+  viewer: ['dashboard', 'attendance', 'notices', 'reports', 'settings']
 };
 
 const roleActivities = {
-  admin: ['Manage every module, users, role assignments, system settings, and backups.'],
-  system_manager: ['Full operational and user administration access, including audit and backup tools.'],
+  admin: ['Manage every module, users, role assignments, attendance, system settings, and backups.'],
+  system_manager: ['Full operational and user administration access, including attendance, audit, and backup tools.'],
   hr: ['Review regional staff availability and maintain the staff directory; review leave requests; coordinate training and performance records.'],
   accountant: ['Record income and expenses; maintain references; verify or reject pending financial entries; review reports.'],
   fire_marshal: ['Review station, incident, and equipment records; record fire-safety inspections, hazards, and follow-up actions.'],
@@ -482,6 +592,10 @@ function updateNavForRole(role) {
   const fullAccess = ['admin', 'system_manager'].includes(role);
   const allowed = viewPermissions[role] || viewPermissions.viewer;
   navBtns.forEach(btn => btn.classList.toggle('hidden', !allowed.includes(btn.dataset.view)));
+  document.querySelectorAll('.command-shortcut').forEach(button => {
+    button.classList.toggle('hidden', !allowed.includes(button.dataset.dashboardView));
+  });
+  document.getElementById('dashboardRecordIncidentBtn').classList.toggle('hidden', !['admin', 'system_manager', 'station', 'shift', 'officer', 'fire_marshal'].includes(role));
   const activeButton = navBtns.find(btn => btn.classList.contains('active') && !btn.classList.contains('hidden'));
   if (!activeButton) {
     const firstVisible = navBtns.find(btn => !btn.classList.contains('hidden'));
@@ -524,11 +638,41 @@ function renderDashboard(data) {
   if (data.financePending !== undefined) dashboardSummary.appendChild(createSummaryCard('Finance Pending', data.financePending));
   if (data.fireInspections !== undefined) dashboardSummary.appendChild(createSummaryCard('Fire Inspections', data.fireInspections));
 
+  const noticeItems = data.notifications.slice(0, 3).map(notice => `
+    <li class="notice-preview">
+      <span class="notice-preview-marker" aria-hidden="true"></span>
+      <span><strong>${escapeHtml(notice.title)}</strong><small>${escapeHtml(notice.date || '')}${notice.message ? ` · ${escapeHtml(notice.message)}` : ''}</small></span>
+    </li>
+  `).join('');
+  const stationItems = data.stations.slice(0, 4).map(station => {
+    const isOperational = String(station.status).toLowerCase() === 'active';
+    return `
+      <li class="station-preview">
+        <span class="station-preview-indicator ${isOperational ? 'operational' : 'attention'}" aria-hidden="true"></span>
+        <span><strong>${escapeHtml(station.name)}</strong><small>${escapeHtml(station.location || 'Location not set')} · ${station.officers.length} personnel</small></span>
+        <span class="station-status-label">${isOperational ? 'Operational' : escapeHtml(station.status)}</span>
+      </li>
+    `;
+  }).join('');
   dashboardCards.innerHTML = `
-    <div class="card"><h3>Incident Reports</h3><p>${data.incidents.length} recorded events</p></div>
-    <div class="card"><h3>Alerts</h3><p>${data.notifications.length} active notices</p></div>
-    <div class="card"><h3>Shifts</h3><p>${data.shifts.length} scheduled shifts</p></div>
+    <article class="dashboard-card">
+      <div class="dashboard-card-heading">
+        <div><span class="dashboard-section-kicker">REGIONAL BRIEFING</span><h3>Official notices</h3></div>
+        <button class="text-action" data-dashboard-view="notices" type="button">View all <span aria-hidden="true">→</span></button>
+      </div>
+      <ul class="dashboard-preview-list">${noticeItems || '<li class="empty-preview">No active notices at this time.</li>'}</ul>
+    </article>
+    <article class="dashboard-card">
+      <div class="dashboard-card-heading">
+        <div><span class="dashboard-section-kicker">FIELD NETWORK</span><h3>Station readiness</h3></div>
+        <button class="text-action" data-dashboard-view="stations" type="button">All stations <span aria-hidden="true">→</span></button>
+      </div>
+      <ul class="dashboard-preview-list">${stationItems || '<li class="empty-preview">No stations have been registered.</li>'}</ul>
+    </article>
   `;
+  dashboardCards.querySelectorAll('[data-dashboard-view]').forEach(button => {
+    button.addEventListener('click', () => switchView(button.dataset.dashboardView));
+  });
 }
 
 function attachActionButtons(container, selector, handler) {
@@ -966,13 +1110,8 @@ function renderRegionalCsvPreview(rows, errors) {
 
 function setRegionalPersonnelLogo(source) {
   const logo = document.getElementById('regionalPersonnelPrintLogo');
-  if (source) {
-    logo.src = source;
-    logo.classList.remove('hidden');
-  } else {
-    logo.removeAttribute('src');
-    logo.classList.add('hidden');
-  }
+  logo.src = source || 'fire-rescue-force-logo.png';
+  logo.classList.remove('hidden');
 }
 
 function renderTasks(data) {
@@ -1519,11 +1658,121 @@ function renderInspections(data) {
   });
 }
 
+function getTanzaniaDate(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Dar_es_Salaam',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function formatAttendanceTime(timestamp) {
+  if (!timestamp) return '—';
+  return `${new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Africa/Dar_es_Salaam',
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  }).format(new Date(timestamp))} EAT`;
+}
+
+function updateAttendanceCheckIn(record, date) {
+  const status = record?.status || 'Not signed in';
+  const statusElement = document.getElementById('attendanceCheckinStatus');
+  const button = document.getElementById('attendanceCheckInBtn');
+  document.getElementById('attendanceCheckinTitle').textContent = `Today · ${date}`;
+  statusElement.textContent = status === 'Present'
+    ? `Signed in at ${formatAttendanceTime(record.checkInAt)}`
+    : status === 'On leave'
+      ? 'Your attendance is marked as on leave today.'
+      : status === 'Absent'
+        ? 'Your attendance is marked absent. Sign in to update it to present.'
+        : 'You have not signed in today.';
+  button.disabled = status === 'Present';
+  button.textContent = status === 'Present' ? 'Signed in' : 'Sign in for today';
+}
+
+function renderAttendanceAdmin(records, date) {
+  attendanceAdminRecords = records;
+  const search = document.getElementById('attendanceSearchInput').value.trim().toLowerCase();
+  const filtered = records.filter(record => `${record.name} ${record.role || ''} ${record.station || ''}`.toLowerCase().includes(search));
+  const present = records.filter(record => record.status === 'Present').length;
+  const absent = records.filter(record => record.status === 'Absent').length;
+  const onLeave = records.filter(record => record.status === 'On leave').length;
+  const unrecorded = records.length - present - absent - onLeave;
+  const summary = document.getElementById('attendanceSummary');
+  summary.replaceChildren(
+    createSummaryCard('Present', present),
+    createSummaryCard('Absent', absent),
+    createSummaryCard('On leave', onLeave),
+    createSummaryCard('Not recorded', unrecorded)
+  );
+  const rows = filtered.map(record => {
+    const status = record.status || 'Not recorded';
+    const statusClass = status === 'Present' ? 'active' : status === 'Absent' ? 'rejected' : status === 'On leave' ? 'pending' : '';
+    const buttons = ['Present', 'Absent', 'On leave'].map(option => (
+      `<button type="button" class="secondary attendance-status-button" data-action="set-attendance" data-person-type="${escapeHtml(record.personType)}" data-person-id="${record.personId}" data-status="${escapeHtml(option)}"${status === option ? ' disabled' : ''}>${escapeHtml(option)}</button>`
+    )).join('');
+    return [
+      escapeHtml(record.name),
+      escapeHtml(record.role || 'Regional personnel'),
+      escapeHtml(record.station || 'Unassigned'),
+      `<span class="status-pill ${statusClass}">${escapeHtml(status)}</span>`,
+      escapeHtml(formatAttendanceTime(record.checkInAt)),
+      `<div class="attendance-row-actions">${buttons}</div>`
+    ];
+  });
+  const list = document.getElementById('attendanceList');
+  list.replaceChildren(createTable(['Name', 'Role', 'Station', 'Status', 'Check-in time (EAT)', 'Update status'], rows));
+  if (!filtered.length) {
+    const emptyMessage = document.createElement('p');
+    emptyMessage.className = 'attendance-empty';
+    emptyMessage.textContent = records.length ? 'No staff match this search.' : `No active staff records for ${date}.`;
+    list.appendChild(emptyMessage);
+  }
+  list.querySelectorAll('[data-action="set-attendance"]').forEach(button => {
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      try {
+        await fetchJson(`/api/attendance/${encodeURIComponent(button.dataset.personType)}/${button.dataset.personId}`, 'PUT', {
+          date,
+          status: button.dataset.status
+        });
+        await loadAttendance(date);
+      } catch (error) {
+        button.disabled = false;
+        alert(error.message);
+      }
+    });
+  });
+}
+
+async function loadAttendance(selectedDate) {
+  const isAdmin = ['admin', 'system_manager'].includes(currentUser?.roleCode);
+  const today = getTanzaniaDate();
+  const dateInput = document.getElementById('attendanceDateInput');
+  dateInput.max = today;
+  if (!dateInput.value) dateInput.value = today;
+  const requestedDate = isAdmin ? selectedDate || dateInput.value : today;
+  if (isAdmin) dateInput.value = requestedDate;
+  const [selectedDay, todayData] = await Promise.all([
+    getJson(`/api/attendance?date=${encodeURIComponent(requestedDate)}`),
+    requestedDate === today ? Promise.resolve(null) : getJson(`/api/attendance?date=${encodeURIComponent(today)}`)
+  ]);
+  const ownRecord = (todayData || selectedDay).records.find(record => record.personType === 'user' && Number(record.personId) === Number(currentUser.id));
+  updateAttendanceCheckIn(ownRecord, today);
+  document.getElementById('attendanceAdminPanel').classList.toggle('hidden', !isAdmin);
+  if (isAdmin) renderAttendanceAdmin(selectedDay.records, selectedDay.date);
+}
+
 async function loadViewData(viewName) {
   try {
     if (viewName === 'notices') renderNotices(await getJson('/api/notices'));
     if (viewName === 'users') await loadUsers();
     if (viewName === 'regionalPersonnel') await loadRegionalPersonnel();
+    if (viewName === 'attendance') await loadAttendance();
     if (viewName === 'leave') renderLeave(await getJson('/api/leave'));
     if (viewName === 'training') renderTraining(await getJson('/api/training'));
     if (viewName === 'performance') renderPerformance(await getJson('/api/performance'));
@@ -1531,8 +1780,12 @@ async function loadViewData(viewName) {
     if (viewName === 'inspections') renderInspections(await getJson('/api/fire-inspections'));
     if (viewName === 'settings') await loadSettings();
   } catch (error) {
-    const containers = { notices: noticesList, users: usersList, regionalPersonnel: regionalPersonnelList, leave: leaveList, training: trainingList, performance: performanceList };
-    if (containers[viewName]) containers[viewName].innerHTML = `<p class="notification error">${escapeHtml(error.message)}</p>`;
+    const containers = { notices: noticesList, users: usersList, regionalPersonnel: regionalPersonnelList, leave: leaveList, training: trainingList, performance: performanceList, attendance: document.getElementById('attendanceList') };
+    if (viewName === 'attendance' && !['admin', 'system_manager'].includes(currentUser?.roleCode)) {
+      document.getElementById('attendanceCheckinStatus').textContent = error.message;
+    } else if (containers[viewName]) {
+      containers[viewName].innerHTML = `<p class="notification error">${escapeHtml(error.message)}</p>`;
+    }
   }
 }
 
@@ -1555,6 +1808,124 @@ function applyTheme(theme) {
   themeToggleButton.setAttribute('aria-label', `Switch to ${isLight ? 'dark' : 'light'} mode`);
   themeToggleButton.setAttribute('aria-pressed', String(isLight));
   themeSelect.value = isLight ? 'light' : 'dark';
+}
+
+function loadLocalPreferences(key, defaults) {
+  const saved = localStorage.getItem(key);
+  if (!saved) return { ...defaults };
+  try {
+    const parsed = JSON.parse(saved);
+    return parsed && typeof parsed === 'object' ? { ...defaults, ...parsed } : { ...defaults };
+  } catch (error) {
+    console.warn(`Unable to read ${key}; using defaults.`, error);
+    return { ...defaults };
+  }
+}
+
+let displayPreferences = { ...displaySettingsDefaults };
+let printPreferences = { ...printSettingsDefaults };
+
+function applyDisplayPreferences() {
+  document.body.classList.toggle('compact-tables', Boolean(displayPreferences.compactTables));
+  document.body.classList.toggle('reduce-motion', Boolean(displayPreferences.reduceMotion));
+  document.getElementById('compactTablesSetting').checked = Boolean(displayPreferences.compactTables);
+  document.getElementById('reduceMotionSetting').checked = Boolean(displayPreferences.reduceMotion);
+}
+
+function applyPrintPreferences() {
+  const paper = printPreferences.paper === 'letter' ? 'Letter' : 'A4';
+  const orientation = printPreferences.orientation === 'portrait' ? 'portrait' : 'landscape';
+  const rules = document.getElementById('printPageSettings') || document.head.appendChild(document.createElement('style'));
+  rules.id = 'printPageSettings';
+  rules.textContent = `@media print { @page { size: ${paper} ${orientation}; margin: 14mm; } }`;
+  document.getElementById('printPaperSetting').value = printPreferences.paper;
+  document.getElementById('printOrientationSetting').value = printPreferences.orientation;
+  document.getElementById('printLogoSetting').checked = Boolean(printPreferences.includeLogo);
+  document.getElementById('printTimestampSetting').checked = Boolean(printPreferences.includeTimestamp);
+  document.getElementById('printFooterSetting').value = printPreferences.footer;
+  document.body.classList.toggle('print-with-logo', Boolean(printPreferences.includeLogo));
+  document.body.classList.toggle('print-with-timestamp', Boolean(printPreferences.includeTimestamp));
+}
+
+function initializeWorkspacePreferences() {
+  const savedDisplay = loadLocalPreferences('zimamotoDisplayPreferences', displaySettingsDefaults);
+  displayPreferences = {
+    compactTables: savedDisplay.compactTables === true,
+    reduceMotion: savedDisplay.reduceMotion === true
+  };
+  const savedPrint = loadLocalPreferences('zimamotoPrintPreferences', printSettingsDefaults);
+  printPreferences = {
+    paper: ['a4', 'letter'].includes(savedPrint.paper) ? savedPrint.paper : printSettingsDefaults.paper,
+    orientation: ['landscape', 'portrait'].includes(savedPrint.orientation) ? savedPrint.orientation : printSettingsDefaults.orientation,
+    includeLogo: savedPrint.includeLogo !== false,
+    includeTimestamp: savedPrint.includeTimestamp !== false,
+    footer: typeof savedPrint.footer === 'string' ? savedPrint.footer.slice(0, 100) : printSettingsDefaults.footer
+  };
+  applyDisplayPreferences();
+  applyPrintPreferences();
+}
+
+function setPrintHeader(view) {
+  const header = view.querySelector('.activity-print-header');
+  const heading = view.querySelector('.view-header h2') || view.querySelector('h2');
+  header.querySelector('h1').textContent = heading?.textContent.trim() || 'Fire and Rescue Operations';
+  header.querySelector('.activity-print-time').textContent = printPreferences.includeTimestamp ? new Date().toLocaleString() : '';
+  header.querySelector('.activity-print-time').classList.toggle('hidden', !printPreferences.includeTimestamp);
+  header.querySelector('.activity-print-footer').textContent = printPreferences.footer.trim();
+  header.querySelector('img').classList.toggle('hidden', !printPreferences.includeLogo);
+}
+
+function printCurrentActivity(view) {
+  setPrintHeader(view);
+  view.querySelectorAll('.table-container table').forEach(table => {
+    const headers = Array.from(table.tHead?.rows[0]?.cells || []);
+    if (headers.at(-1)?.textContent.trim().toLowerCase() === 'actions') {
+      headers.at(-1).classList.add('print-action-column');
+      Array.from(table.tBodies).forEach(body => {
+        Array.from(body.rows).forEach(row => row.cells.at(-1)?.classList.add('print-action-column'));
+      });
+    }
+  });
+  document.body.classList.add('printing-activity');
+  window.addEventListener('afterprint', () => document.body.classList.remove('printing-activity'), { once: true });
+  window.print();
+}
+
+function initializeActivityPrinting() {
+  document.querySelectorAll('.view').forEach(view => {
+    const header = document.createElement('section');
+    header.className = 'activity-print-header';
+    header.innerHTML = `<img src="fire-rescue-force-logo.png" alt=""><div><span>JESHI LA ZIMAMOTO NA UOKOAJI</span><h1></h1><p>Mbeya Fire and Rescue Regional Operations</p></div><div class="activity-print-time"></div>`;
+    header.insertAdjacentHTML('beforeend', '<footer class="activity-print-footer"></footer>');
+    view.prepend(header);
+
+    let button = view.querySelector('#printRegionalPersonnelBtn');
+    if (button) {
+      button.classList.add('activity-print-btn');
+    } else {
+      button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'secondary activity-print-btn';
+      button.textContent = 'Print this activity';
+      const activityTitle = view.querySelector('.view-header h2') || view.querySelector('h2');
+      button.setAttribute('aria-label', `Print ${activityTitle?.textContent.trim() || 'this activity'}`);
+      const viewHeader = view.querySelector('.view-header');
+      if (viewHeader) {
+        viewHeader.appendChild(button);
+      } else {
+        const toolbar = document.createElement('div');
+        toolbar.className = 'activity-print-toolbar';
+        toolbar.appendChild(button);
+        header.after(toolbar);
+      }
+    }
+    button.addEventListener('click', () => {
+      if (view.id === 'regionalPersonnelView') {
+        document.getElementById('regionalPersonnelPrintedAt').textContent = new Date().toLocaleString();
+      }
+      printCurrentActivity(view);
+    });
+  });
 }
 
 async function fetchJson(url, method, payload) {
@@ -1701,10 +2072,6 @@ document.getElementById('regionalPersonnelLogoInput').addEventListener('change',
   reader.addEventListener('error', () => alert('The logo file could not be read.'));
   reader.readAsDataURL(file);
 });
-document.getElementById('printRegionalPersonnelBtn').addEventListener('click', () => {
-  document.getElementById('regionalPersonnelPrintedAt').textContent = new Date().toLocaleString();
-  window.print();
-});
 setRegionalPersonnelLogo(localStorage.getItem('zimamotoRegionalOfficialLogo'));
 
 newRegionalPersonnelBtn.addEventListener('click', async () => {
@@ -1842,40 +2209,68 @@ document.getElementById('leaveForm').addEventListener('submit', async event => {
 });
 
 const loginArtworkInput = document.getElementById('loginArtworkInput');
-loginArtworkInput.addEventListener('change', () => {
-  const file = loginArtworkInput.files?.[0];
-  const message = document.getElementById('loginArtworkMessage');
-  if (!file) return;
-  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
-    moduleNotice(message, 'Choose a PNG, JPEG, or WebP image.');
-    loginArtworkInput.value = '';
-    return;
-  }
-  if (file.size > 2 * 1024 * 1024) {
-    moduleNotice(message, 'Login picture must be 2 MB or smaller.');
-    loginArtworkInput.value = '';
-    return;
-  }
-  const reader = new FileReader();
-  reader.addEventListener('load', () => {
-    if (typeof reader.result !== 'string') {
-      moduleNotice(message, 'Unable to read this image.');
-      return;
-    }
-    loginArtworkData = reader.result;
-    renderLoginArtwork(loginArtworkData);
-    moduleNotice(message, 'Picture preview ready. Save to publish it.', 'success');
+async function readLoginPhoto(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener('load', () => {
+      if (typeof reader.result === 'string') resolve(reader.result);
+      else reject(new Error(`Unable to read ${file.name}.`));
+    });
+    reader.addEventListener('error', () => reject(new Error(`Unable to read ${file.name}.`)));
+    reader.readAsDataURL(file);
   });
-  reader.addEventListener('error', () => moduleNotice(message, 'Unable to read this image.'));
-  reader.readAsDataURL(file);
+}
+
+loginArtworkInput.addEventListener('change', async () => {
+  const files = Array.from(loginArtworkInput.files || []);
+  const message = document.getElementById('loginArtworkMessage');
+  if (!files.length) return;
+  const totalSize = files.reduce((sum, file) => sum + file.size, pendingLoginGallery.reduce((total, image) => total + Math.floor(image.length * 0.75), 0));
+  const invalidType = files.find(file => !['image/png', 'image/jpeg', 'image/webp'].includes(file.type));
+  const oversized = files.find(file => file.size > 1200 * 1024);
+  if (invalidType) {
+    moduleNotice(message, `${invalidType.name} is not a PNG, JPEG, or WebP photo.`);
+    loginArtworkInput.value = '';
+    return;
+  }
+  if (oversized) {
+    moduleNotice(message, `${oversized.name} must be 1.2 MB or smaller.`);
+    loginArtworkInput.value = '';
+    return;
+  }
+  if (files.length + pendingLoginGallery.length > 5) {
+    moduleNotice(message, 'The slideshow can contain up to five photos.');
+    loginArtworkInput.value = '';
+    return;
+  }
+  if (totalSize > 6.2 * 1024 * 1024) {
+    moduleNotice(message, 'The complete slideshow must be 6.2 MB or smaller.');
+    loginArtworkInput.value = '';
+    return;
+  }
+  try {
+    pendingLoginGallery.push(...await Promise.all(files.map(readLoginPhoto)));
+    renderLoginGallerySettings(pendingLoginGallery);
+    moduleNotice(message, 'Photo preview ready. Publish the slideshow to make it visible on the login page.', 'success');
+  } catch (error) {
+    moduleNotice(message, error.message);
+  } finally {
+    loginArtworkInput.value = '';
+  }
 });
 
 document.getElementById('saveLoginArtworkBtn').addEventListener('click', async () => {
   const message = document.getElementById('loginArtworkMessage');
-  if (!loginArtworkData) return moduleNotice(message, 'Choose a picture before saving.');
   try {
-    await fetchJson('/api/system/login-artwork', 'PUT', { image: loginArtworkData });
-    moduleNotice(message, 'Login picture updated.', 'success');
+    const result = await fetchJson('/api/system/login-gallery', 'PUT', {
+      images: pendingLoginGallery,
+      interval: Number(document.getElementById('loginSlideshowInterval').value)
+    });
+    loginGalleryData = result.images;
+    loginSlideshowInterval = result.interval;
+    loginSlideIndex = 0;
+    renderLoginSlideshow(loginGalleryData);
+    moduleNotice(message, 'Login slideshow published.', 'success');
   } catch (error) {
     moduleNotice(message, error.message);
   }
@@ -1883,16 +2278,36 @@ document.getElementById('saveLoginArtworkBtn').addEventListener('click', async (
 
 document.getElementById('removeLoginArtworkBtn').addEventListener('click', async () => {
   const message = document.getElementById('loginArtworkMessage');
-  if (!confirm('Remove the custom login page picture?')) return;
+  if (!confirm('Clear all photos from the login slideshow?')) return;
   try {
-    await deleteJson('/api/system/login-artwork');
-    loginArtworkData = null;
+    await deleteJson('/api/system/login-gallery');
+    loginGalleryData = [];
+    pendingLoginGallery = [];
     loginArtworkInput.value = '';
-    renderLoginArtwork(null);
-    moduleNotice(message, 'Custom login picture removed.', 'success');
+    loginSlideshowInterval = 6;
+    document.getElementById('loginSlideshowInterval').value = '6';
+    renderLoginSlideshow(loginGalleryData);
+    renderLoginGallerySettings(pendingLoginGallery);
+    moduleNotice(message, 'Login slideshow cleared.', 'success');
   } catch (error) {
     moduleNotice(message, error.message);
   }
+});
+
+document.getElementById('loginSlidePrevious').addEventListener('click', () => showLoginSlide(loginSlideIndex - 1));
+document.getElementById('loginSlideNext').addEventListener('click', () => showLoginSlide(loginSlideIndex + 1));
+document.getElementById('loginSlideshowToggle').addEventListener('click', event => {
+  const button = event.currentTarget;
+  const paused = button.getAttribute('aria-pressed') !== 'true';
+  button.setAttribute('aria-pressed', String(paused));
+  button.setAttribute('aria-label', paused ? 'Play slideshow' : 'Pause slideshow');
+  button.textContent = paused ? 'Play' : 'Pause';
+  if (paused) stopLoginSlideshow();
+  else startLoginSlideshow();
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) stopLoginSlideshow();
+  else startLoginSlideshow();
 });
 
 newTrainingBtn.addEventListener('click', () => showTrainingEditor());
@@ -2021,6 +2436,61 @@ document.getElementById('settingsTheme').addEventListener('change', event => {
   applyTheme(event.currentTarget.value);
 });
 
+document.getElementById('displaySettingsForm').addEventListener('submit', event => {
+  event.preventDefault();
+  displayPreferences = {
+    compactTables: document.getElementById('compactTablesSetting').checked,
+    reduceMotion: document.getElementById('reduceMotionSetting').checked
+  };
+  try {
+    localStorage.setItem('zimamotoDisplayPreferences', JSON.stringify(displayPreferences));
+    applyDisplayPreferences();
+    moduleNotice(document.getElementById('displaySettingsMessage'), 'Display preferences saved on this device.', 'success');
+  } catch (error) {
+    moduleNotice(document.getElementById('displaySettingsMessage'), `Unable to save display preferences: ${error.message}`);
+  }
+});
+
+document.getElementById('resetDisplaySettingsBtn').addEventListener('click', () => {
+  displayPreferences = { ...displaySettingsDefaults };
+  try {
+    localStorage.removeItem('zimamotoDisplayPreferences');
+    applyDisplayPreferences();
+    moduleNotice(document.getElementById('displaySettingsMessage'), 'Display settings reset.', 'success');
+  } catch (error) {
+    moduleNotice(document.getElementById('displaySettingsMessage'), `Unable to reset display preferences: ${error.message}`);
+  }
+});
+
+document.getElementById('printSettingsForm').addEventListener('submit', event => {
+  event.preventDefault();
+  printPreferences = {
+    paper: document.getElementById('printPaperSetting').value,
+    orientation: document.getElementById('printOrientationSetting').value,
+    includeLogo: document.getElementById('printLogoSetting').checked,
+    includeTimestamp: document.getElementById('printTimestampSetting').checked,
+    footer: document.getElementById('printFooterSetting').value.trim()
+  };
+  try {
+    localStorage.setItem('zimamotoPrintPreferences', JSON.stringify(printPreferences));
+    applyPrintPreferences();
+    moduleNotice(document.getElementById('printSettingsMessage'), 'Print layout preferences saved on this device.', 'success');
+  } catch (error) {
+    moduleNotice(document.getElementById('printSettingsMessage'), `Unable to save print preferences: ${error.message}`);
+  }
+});
+
+document.getElementById('resetPrintSettingsBtn').addEventListener('click', () => {
+  printPreferences = { ...printSettingsDefaults };
+  try {
+    localStorage.removeItem('zimamotoPrintPreferences');
+    applyPrintPreferences();
+    moduleNotice(document.getElementById('printSettingsMessage'), 'Print settings reset.', 'success');
+  } catch (error) {
+    moduleNotice(document.getElementById('printSettingsMessage'), `Unable to reset print preferences: ${error.message}`);
+  }
+});
+
 themeToggleButton.addEventListener('click', async () => {
   const previousTheme = document.body.classList.contains('light-theme') ? 'light' : 'dark';
   const nextTheme = previousTheme === 'light' ? 'dark' : 'light';
@@ -2142,6 +2612,35 @@ languageSelect.addEventListener('change', (event) => {
 
 navBtns.forEach(btn => {
   btn.addEventListener('click', () => switchView(btn.dataset.view));
+});
+
+document.getElementById('attendanceDateInput').addEventListener('change', event => {
+  loadAttendance(event.currentTarget.value);
+});
+
+document.getElementById('attendanceSearchInput').addEventListener('input', () => {
+  renderAttendanceAdmin(attendanceAdminRecords, document.getElementById('attendanceDateInput').value);
+});
+
+document.getElementById('attendanceCheckInBtn').addEventListener('click', async event => {
+  const button = event.currentTarget;
+  const status = document.getElementById('attendanceCheckinStatus');
+  button.disabled = true;
+  status.textContent = 'Recording your sign-in…';
+  try {
+    await postJson('/api/attendance/check-in', {});
+    await loadAttendance(document.getElementById('attendanceDateInput').value || getTanzaniaDate());
+  } catch (error) {
+    status.textContent = error.message;
+    button.disabled = false;
+  }
+});
+
+document.querySelectorAll('.command-shortcut').forEach(button => {
+  button.addEventListener('click', () => switchView(button.dataset.dashboardView));
+});
+document.getElementById('dashboardRecordIncidentBtn').addEventListener('click', () => {
+  document.getElementById('newIncidentBtn').click();
 });
 
 // Auth form switching
@@ -2301,6 +2800,8 @@ document.getElementById('submitResetBtn').addEventListener('click', async () => 
 });
 
 async function initialize() {
+  initializeWorkspacePreferences();
+  initializeActivityPrinting();
   try { await loadLoginArtwork(); } catch (error) { console.warn(error.message); }
   try {
     currentUser = await getJson('/api/auth/me');

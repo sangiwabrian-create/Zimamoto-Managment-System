@@ -4,7 +4,7 @@ A Tanzania Fire and Rescue management prototype with role-based dashboards, stat
 
 ## Features
 - Login page branded for Zimamoto Mbeya Fire & Rescue.
-- Responsive split-panel login page; regional admins and system managers can publish or remove its image from System Settings.
+- Responsive split-panel login page with a public photo carousel; regional admins and system managers can upload up to five photos and set the slide interval in System Settings.
 - Staff can set an availability status and message on their profile; HR, administrators, and system managers can review the regional personnel roster and staff availability.
 - Persistent SQLite storage for roles, stations, tasks, incidents, vehicles, equipment, shifts, notifications, and feedback.
 - Role-based dashboard content for Kamanda wa Mkoa, Kamanda wa Kituo, Mkuu wa Zamu, Askari Zimamoto, Fundi Magari, Afisa wa Vifaa.
@@ -13,6 +13,7 @@ A Tanzania Fire and Rescue management prototype with role-based dashboards, stat
 - Task management with assignment, deadlines, priorities, and statuses.
 - Incident logging and vehicle inventory.
 - Shift management and feedback submission.
+- Daily attendance sign-in records each account's check-in using the server clock in East Africa Time; administrators can review and update daily attendance for all active accounts and regional personnel, including staff without login accounts.
 - User administration with server-enforced role permissions and account deactivation.
 - Notice board, leave requests and approvals, training management, and personal performance goals.
 - Any signed-in user can submit a leave request; only the regional administrator and HR can list, review, or delete requests. Other roles see no leave records or pending-request totals.
@@ -22,6 +23,8 @@ A Tanzania Fire and Rescue management prototype with role-based dashboards, stat
 - The login emblem is the Fire and Rescue Force PNG published in the [official Force website masthead](https://zimamoto.go.tz/sites/default/files/inline-images/frf_logo.png).
 - A System Manager role with full administrative access alongside the existing regional administrator role.
 - Per-user dark/light theme, language, and notification preferences.
+- Per-device display density and animation preferences, plus configurable A4/Letter activity printing with orientation, Force logo, date, and footer options.
+- Every operational view, including reports and the regional personnel register, has a print action with an official report header.
 - Administrator JSON backups and additive import from the standalone dashboard export; account passwords are never imported.
 - English/Kiswahili language toggle.
 

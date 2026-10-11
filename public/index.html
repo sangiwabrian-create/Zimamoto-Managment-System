@@ -3,12 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Zimamoto Mbeya Fire & Rescue</title>
+  <title>Zimamoto Mbeya, Fire & Rescue</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div id="loginView" class="login-view">
     <div class="login-container">
+      <div class="login-emergency-strip">
+        <span>Saving Lives and Properties</span>
+        <a href="tel:114"><span>Emergency hotline</span><strong>114</strong></a>
+      </div>
       <div class="login-layout">
         <section class="login-showcase" aria-label="Zimamoto Mbeya">
           <div class="login-brand">
@@ -19,15 +23,26 @@
               <p>Fire & Rescue Management System</p>
             </div>
           </div>
-          <div class="login-artwork-frame">
+          <div class="login-artwork-frame" role="region" aria-label="Fire and Rescue Force photo slideshow" aria-roledescription="carousel">
             <img id="loginArtwork" class="login-artwork hidden" alt="Zimamoto Mbeya login page artwork">
             <div id="loginArtworkPlaceholder" class="login-artwork-placeholder" aria-hidden="true">
               <div class="artwork-ring artwork-ring-one"></div>
               <div class="artwork-ring artwork-ring-two"></div>
-              <div class="artwork-flame">Z</div>
+              <div class="artwork-emblem">
+                <img src="fire-rescue-force-logo.png" alt="">
+                <span>JESHI LA ZIMAMOTO<br>NA UOKOAJI</span>
+              </div>
               <div class="artwork-stripe"></div>
             </div>
+            <div class="artwork-caption"><strong>Ready to respond.</strong><span>Ready to protect.</span></div>
+            <div id="loginSlideshowControls" class="login-slideshow-controls hidden">
+              <button id="loginSlidePrevious" type="button" aria-label="Previous photo">‹</button>
+              <div id="loginSlideIndicators" class="login-slide-indicators" aria-label="Choose a photo"></div>
+              <button id="loginSlideshowToggle" type="button" aria-label="Pause slideshow" aria-pressed="false">Pause</button>
+              <button id="loginSlideNext" type="button" aria-label="Next photo">›</button>
+            </div>
           </div>
+          <p class="login-showcase-note">Fire and Rescue Force · Mbeya Regional Operations</p>
         </section>
         <div class="login-panel">
           <div class="login-card">
@@ -96,11 +111,16 @@
 
   <div id="appShell" class="app-shell hidden">
     <header class="topbar">
+      <div class="emergency-strip">
+        <span class="emergency-strip-message">Saving Lives and Properties</span>
+        <a class="emergency-hotline" href="tel:114"><span>Emergency hotline</span><strong>114</strong></a>
+      </div>
       <div class="brand">
         <img class="logo" src="fire-rescue-force-logo.png" alt="Jeshi la Zimamoto na Uokoaji Tanzania emblem">
         <div>
+          <span class="brand-overline">UNITED REPUBLIC OF TANZANIA · MINISTRY OF HOME AFFAIRS</span>
           <h1>Zimamoto Mbeya Management</h1>
-          <p>Fire Station Operations & Incident Control</p>
+          <p>Fire and Rescue Force · Mbeya Regional Operations</p>
         </div>
       </div>
       <div class="top-actions">
@@ -181,6 +201,7 @@
             <button class="nav-btn" data-view="vehicles"><span class="nav-label">Vehicles</span></button>
             <button class="nav-btn" data-view="equipment"><span class="nav-label">Equipment</span></button>
             <button class="nav-btn" data-view="shifts"><span class="nav-label">Shifts</span></button>
+            <button class="nav-btn" data-view="attendance"><span class="nav-label">Attendance</span></button>
             <button class="nav-btn" data-view="notices"><span class="nav-label">Notices</span></button>
             <button class="nav-btn" data-view="users"><span class="nav-label">Users & Roles</span></button>
             <button class="nav-btn" data-view="regionalPersonnel"><span class="nav-label">Regional Personnel</span></button>
@@ -198,12 +219,33 @@
 
       <section class="content">
         <section id="dashboardView" class="view active">
+          <section class="operations-hero" aria-labelledby="operationsHeroTitle">
+            <div class="operations-hero-copy">
+              <span class="operations-eyebrow">M B E Y A &nbsp; R E G I O N · OPERATIONS CENTRE</span>
+              <h2 id="operationsHeroTitle">Ready to respond.<br><span>Ready to protect.</span></h2>
+              <p>Regional stations, response teams, incidents and resources — together in one command view.</p>
+              <div class="operations-hero-actions">
+                <button id="dashboardRecordIncidentBtn" class="hero-action-primary" type="button">Record an incident</button>
+                <a class="hero-action-secondary" href="tel:114">Emergency line <strong>114</strong></a>
+              </div>
+            </div>
+            <div class="operations-hero-seal" aria-hidden="true">
+              <img src="fire-rescue-force-logo.png" alt="">
+              <span>JESHI LA ZIMAMOTO<br>NA UOKOAJI</span>
+            </div>
+          </section>
           <div class="view-header">
             <div>
               <h2 id="dashboardTitle">Dashboard</h2>
               <p class="view-description">Overview of stations, tasks, vehicles, incidents and notifications.</p>
             </div>
           </div>
+          <section class="command-shortcuts" aria-label="Operational shortcuts">
+            <button class="command-shortcut" data-dashboard-view="stations" type="button"><span class="shortcut-index">01</span><span><strong>Stations</strong><small>Review stations and crews</small></span><span class="shortcut-arrow" aria-hidden="true">→</span></button>
+            <button class="command-shortcut" data-dashboard-view="tasks" type="button"><span class="shortcut-index">02</span><span><strong>Response tasks</strong><small>Coordinate active work</small></span><span class="shortcut-arrow" aria-hidden="true">→</span></button>
+            <button class="command-shortcut" data-dashboard-view="incidents" type="button"><span class="shortcut-index">03</span><span><strong>Incident reports</strong><small>View operational reports</small></span><span class="shortcut-arrow" aria-hidden="true">→</span></button>
+            <button class="command-shortcut" data-dashboard-view="notices" type="button"><span class="shortcut-index">04</span><span><strong>Official notices</strong><small>Read regional updates</small></span><span class="shortcut-arrow" aria-hidden="true">→</span></button>
+          </section>
           <div class="summary-grid" id="dashboardSummary"></div>
           <div class="cards-grid" id="dashboardCards"></div>
           <section id="roleActivities" class="role-activities" aria-live="polite"></section>
@@ -268,6 +310,41 @@
             <button class="primary" id="newShiftBtn">Add Shift</button>
           </div>
           <div id="shiftsList" class="table-container"></div>
+        </section>
+
+        <section id="attendanceView" class="view">
+          <div class="view-header">
+            <div>
+              <h2 id="attendanceTitle">Daily Attendance</h2>
+              <p class="view-description">Sign in for today. Attendance times are recorded by the server using East Africa Time.</p>
+            </div>
+          </div>
+          <section class="attendance-checkin-card" aria-labelledby="attendanceCheckinTitle">
+            <div>
+              <span class="attendance-kicker">YOUR ATTENDANCE</span>
+              <h3 id="attendanceCheckinTitle">Today</h3>
+              <p id="attendanceCheckinStatus" role="status">Loading your attendance…</p>
+            </div>
+            <button id="attendanceCheckInBtn" class="primary" type="button">Sign in for today</button>
+          </section>
+          <section id="attendanceAdminPanel" class="attendance-admin-panel hidden">
+            <div class="attendance-admin-heading">
+              <div>
+                <h3>Regional daily register</h3>
+                <p class="view-description">Review active accounts and regional personnel. Mark attendance for the selected date.</p>
+              </div>
+              <div class="attendance-filters">
+                <label for="attendanceDateInput">Attendance date
+                  <input id="attendanceDateInput" type="date">
+                </label>
+                <label for="attendanceSearchInput">Find staff
+                  <input id="attendanceSearchInput" type="search" placeholder="Search name, role, or station">
+                </label>
+              </div>
+            </div>
+            <div id="attendanceSummary" class="summary-grid"></div>
+            <div id="attendanceList" class="table-container"></div>
+          </section>
         </section>
 
         <section id="noticesView" class="view">
@@ -507,21 +584,48 @@
             <div class="form-actions"><button class="primary" type="submit">Save Preferences</button></div>
             <div id="settingsFormMessage" class="notification"></div>
           </form>
+          <form id="displaySettingsForm" class="module-form settings-preferences-form">
+            <h3>Display preferences</h3>
+            <p class="view-description">Adjust the workspace for your device and working style.</p>
+            <div class="module-form-grid">
+              <label class="check-row"><input id="compactTablesSetting" type="checkbox"> Compact tables</label>
+              <label class="check-row"><input id="reduceMotionSetting" type="checkbox"> Reduce animations</label>
+            </div>
+            <div class="form-actions">
+              <button id="resetDisplaySettingsBtn" class="secondary" type="button">Reset display</button>
+              <button class="primary" type="submit">Save display</button>
+            </div>
+            <div id="displaySettingsMessage" class="notification" role="status"></div>
+          </form>
+          <form id="printSettingsForm" class="module-form settings-preferences-form">
+            <h3>Print & report layout</h3>
+            <p class="view-description">Choose the page format for printing any activity or report.</p>
+            <div class="module-form-grid">
+              <label>Paper size<select id="printPaperSetting"><option value="a4">A4</option><option value="letter">Letter</option></select></label>
+              <label>Page orientation<select id="printOrientationSetting"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select></label>
+              <label class="check-row"><input id="printLogoSetting" type="checkbox"> Include official force logo</label>
+              <label class="check-row"><input id="printTimestampSetting" type="checkbox"> Include print date and time</label>
+              <label class="form-full">Report footer<input id="printFooterSetting" type="text" maxlength="100" placeholder="Mbeya Fire and Rescue · Official Copy"></label>
+            </div>
+            <div class="form-actions">
+              <button id="resetPrintSettingsBtn" class="secondary" type="button">Reset print settings</button>
+              <button class="primary" type="submit">Save print settings</button>
+            </div>
+            <div id="printSettingsMessage" class="notification" role="status"></div>
+          </form>
           <div class="settings-tools admin-only">
             <div class="settings-tool login-artwork-tool">
               <div>
-                <h3>Login page picture</h3>
-                <p>Choose the artwork shown on the public sign-in page. PNG, JPEG, or WebP; maximum 2 MB.</p>
-                <div class="login-artwork-preview-frame">
-                  <img id="loginArtworkSettingsPreview" class="login-artwork-settings-preview hidden" alt="Login page picture preview">
-                  <span id="loginArtworkSettingsPlaceholder">No custom picture selected</span>
-                </div>
+                <h3>Login photo slideshow</h3>
+                <p>Add up to five PNG, JPEG, or WebP photos. Each photo must be 1.2 MB or smaller. Photos are shown on the public sign-in page.</p>
+                <div id="loginGallerySettingsPreview" class="login-gallery-settings-preview"></div>
               </div>
               <div class="login-artwork-controls">
-                <label class="secondary import-file-label" for="loginArtworkInput">Choose picture</label>
-                <input id="loginArtworkInput" type="file" accept="image/png,image/jpeg,image/webp" hidden>
-                <button id="removeLoginArtworkBtn" class="secondary" type="button">Remove picture</button>
-                <button id="saveLoginArtworkBtn" class="primary" type="button">Save picture</button>
+                <label>Change photo every<select id="loginSlideshowInterval"><option value="4">4 seconds</option><option value="6" selected>6 seconds</option><option value="8">8 seconds</option><option value="10">10 seconds</option></select></label>
+                <label class="secondary import-file-label" for="loginArtworkInput">Add photos</label>
+                <input id="loginArtworkInput" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
+                <button id="removeLoginArtworkBtn" class="secondary" type="button">Clear slideshow</button>
+                <button id="saveLoginArtworkBtn" class="primary" type="button">Publish slideshow</button>
               </div>
               <div id="loginArtworkMessage" class="notification" role="status"></div>
             </div>
