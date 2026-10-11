@@ -3,35 +3,105 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Zimamoto Mbeya Fire & Rescue</title>
+  <title>Zimamoto Mbeya, Fire & Rescue</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div id="loginView" class="login-view">
     <div class="login-container">
-      <div class="login-brand">
-        <div class="coat-of-arms"></div>
-        <div>
-          <span>THE UNITED REPUBLIC OF TANZANIA</span>
-          <h1>ZIMAMOTO MBEYA FIRE AND RESCUE</h1>
-          <p>Fire & Rescue Management System</p>
-        </div>
+      <div class="login-emergency-strip">
+        <span>Saving Lives and Properties</span>
+        <a href="tel:114"><span>Emergency hotline</span><strong>114</strong></a>
       </div>
-      <div class="login-card">
-        <h2>Sign In to Zimamoto Mbeya</h2>
-        <form id="loginForm">
+      <div class="login-layout">
+        <section class="login-showcase" aria-label="Zimamoto Mbeya">
+          <div class="login-brand">
+            <img class="coat-of-arms" src="fire-rescue-force-logo.png" alt="Jeshi la Zimamoto na Uokoaji Tanzania emblem">
+            <div>
+              <span>THE UNITED REPUBLIC OF TANZANIA</span>
+              <h1>ZIMAMOTO MBEYA FIRE AND RESCUE</h1>
+              <p>Fire & Rescue Management System</p>
+            </div>
+          </div>
+          <div class="login-artwork-frame" role="region" aria-label="Fire and Rescue Force photo slideshow" aria-roledescription="carousel">
+            <img id="loginArtwork" class="login-artwork hidden" alt="Zimamoto Mbeya login page artwork">
+            <div id="loginArtworkPlaceholder" class="login-artwork-placeholder" aria-hidden="true">
+              <div class="artwork-ring artwork-ring-one"></div>
+              <div class="artwork-ring artwork-ring-two"></div>
+              <div class="artwork-emblem">
+                <img src="fire-rescue-force-logo.png" alt="">
+                <span>JESHI LA ZIMAMOTO<br>NA UOKOAJI</span>
+              </div>
+              <div class="artwork-stripe"></div>
+            </div>
+            <div class="artwork-caption"><strong>Ready to respond.</strong><span>Ready to protect.</span></div>
+            <div id="loginSlideshowControls" class="login-slideshow-controls hidden">
+              <button id="loginSlidePrevious" type="button" aria-label="Previous photo">‹</button>
+              <div id="loginSlideIndicators" class="login-slide-indicators" aria-label="Choose a photo"></div>
+              <button id="loginSlideshowToggle" type="button" aria-label="Pause slideshow" aria-pressed="false">Pause</button>
+              <button id="loginSlideNext" type="button" aria-label="Next photo">›</button>
+            </div>
+          </div>
+          <p class="login-showcase-note">Fire and Rescue Force · Mbeya Regional Operations</p>
+        </section>
+        <div class="login-panel">
+          <div class="login-card">
+        <h2 id="authFormTitle">Sign In to Zimamoto Mbeya</h2>
+
+        <!-- Login Form -->
+        <form id="loginForm" class="auth-form active">
           <label for="checknumberInput">User name</label>
           <input id="checknumberInput" name="User name" type="text" autocomplete="username" required>
           <label for="passwordInput">Password</label>
-          <input id="passwordInput" name="password" type="password" autocomplete="current-password" required>
+          <div class="password-input-wrap">
+            <input id="passwordInput" name="password" type="password" autocomplete="current-password" required>
+            <button id="toggleLoginPassword" class="password-visibility-toggle" type="button" aria-label="Show password" aria-pressed="false">Show</button>
+          </div>
           <div class="login-actions">
             <label class="checkbox-label"><input id="keepLoggedIn" type="checkbox"> Keep me logged in</label>
-            <a href="#" class="secondary-link">Forgot password?</a>
+            <a href="#" id="forgotPasswordLink" class="secondary-link">Forgot password?</a>
           </div>
           <button type="submit" class="primary">Sign In</button>
-          <p class="register-text">Dont have an account? <a href="#" class="secondary-link">Register Here</a></p>
+          <p class="register-text">Dont have an account? <a href="#" id="registerLink" class="secondary-link">Register Here</a></p>
           <div id="loginError" class="notification"></div>
         </form>
+
+        <!-- Registration Form -->
+        <form id="registerForm" class="auth-form hidden">
+          <label for="registerNameInput">Full Name</label>
+          <input id="registerNameInput" type="text" required>
+          <label for="registerChecknumberInput">User name (Checknumber)</label>
+          <input id="registerChecknumberInput" type="text" required>
+          <label for="registerPasswordInput">Password</label>
+          <input id="registerPasswordInput" type="password" minlength="12" required>
+          <label for="registerPasswordConfirmInput">Confirm Password</label>
+          <input id="registerPasswordConfirmInput" type="password" required>
+          <button type="submit" class="primary">Register</button>
+          <p class="register-text">Already have an account? <a href="#" id="backToLoginLink" class="secondary-link">Sign In</a></p>
+          <div id="registerError" class="notification"></div>
+        </form>
+
+        <!-- Forgot Password Form -->
+        <form id="forgotPasswordForm" class="auth-form hidden">
+          <p>Enter your username/checknumber to receive a password reset code.</p>
+          <label for="forgotChecknumberInput">User name (Checknumber)</label>
+          <input id="forgotChecknumberInput" type="text" required>
+          <button type="submit" class="primary">Send Reset Code</button>
+          <p class="register-text"><a href="#" id="backToLoginLink2" class="secondary-link">Back to Sign In</a></p>
+          <div id="forgotPasswordError" class="notification"></div>
+          <div id="resetCodeContainer" class="hidden">
+            <p>Reset code has been sent. Enter it below:</p>
+            <label for="resetTokenInput">Reset Code</label>
+            <input id="resetTokenInput" type="text">
+            <label for="newPasswordInput">New Password</label>
+            <input id="newPasswordInput" type="password" minlength="12">
+            <label for="newPasswordConfirmInput">Confirm Password</label>
+            <input id="newPasswordConfirmInput" type="password">
+            <button type="button" id="submitResetBtn" class="primary">Reset Password</button>
+          </div>
+        </form>
+          </div>
+        </div>
       </div>
       <footer class="login-footer">
         <span>© 2026 Zimamoto Mbeya</span>
@@ -41,18 +111,30 @@
 
   <div id="appShell" class="app-shell hidden">
     <header class="topbar">
+      <div class="emergency-strip">
+        <span class="emergency-strip-message">Saving Lives and Properties</span>
+        <a class="emergency-hotline" href="tel:114"><span>Emergency hotline</span><strong>114</strong></a>
+      </div>
       <div class="brand">
-        <div class="logo"></div>
+        <img class="logo" src="fire-rescue-force-logo.png" alt="Jeshi la Zimamoto na Uokoaji Tanzania emblem">
         <div>
+          <span class="brand-overline">UNITED REPUBLIC OF TANZANIA · MINISTRY OF HOME AFFAIRS</span>
           <h1>Zimamoto Mbeya Management</h1>
-          <p>Fire Station Operations & Incident Control</p>
+          <p>Fire and Rescue Force · Mbeya Regional Operations</p>
         </div>
       </div>
       <div class="top-actions">
         <div class="user-summary">
+          <button id="editProfileBtn" class="profile-trigger secondary" type="button" aria-label="Edit profile">
+            <img id="headerProfileAvatar" class="profile-avatar hidden" alt="Profile picture">
+            <span id="headerProfileInitials" class="profile-avatar-fallback">?</span>
+            <span class="profile-trigger-label">My Profile</span>
+          </button>
           <span id="currentUserLabel">Guest</span>
+          <span id="headerProfileStatus" class="header-profile-status"></span>
           <button id="signOutBtn" class="secondary">Sign Out</button>
         </div>
+        <button id="themeToggleBtn" class="secondary theme-toggle" type="button" aria-label="Switch to light mode">Light mode</button>
         <div class="language-select">
           <select id="languageSelect">
             <option value="sw">Kiswahili</option>
@@ -62,34 +144,111 @@
       </div>
     </header>
 
+    <dialog id="profileDialog" class="profile-dialog" aria-labelledby="profileDialogTitle">
+      <form id="profileForm" class="profile-form">
+        <div class="profile-dialog-header">
+          <div>
+            <p class="eyebrow">ACCOUNT SETTINGS</p>
+            <h2 id="profileDialogTitle">Edit Your Profile</h2>
+          </div>
+          <button id="closeProfileBtn" class="icon-button" type="button" aria-label="Close profile editor">×</button>
+        </div>
+
+        <div class="profile-photo-editor">
+          <img id="profilePhotoPreview" class="profile-photo-preview hidden" alt="Profile picture preview">
+          <span id="profilePhotoInitials" class="profile-photo-fallback">?</span>
+          <div class="profile-photo-controls">
+            <label for="profilePhotoInput">Profile picture</label>
+            <input id="profilePhotoInput" type="file" accept="image/png,image/jpeg,image/webp">
+            <small>PNG, JPEG or WebP; maximum 1 MB.</small>
+            <button id="removeProfilePhotoBtn" class="secondary compact-button" type="button">Remove picture</button>
+          </div>
+        </div>
+
+        <label for="profileNameInput">Display name</label>
+        <input id="profileNameInput" type="text" maxlength="100" required>
+        <label for="profileAvailabilityInput">Availability</label>
+        <select id="profileAvailabilityInput" required>
+          <option>Available</option>
+          <option>On duty</option>
+          <option>Off duty</option>
+          <option>On leave</option>
+        </select>
+        <label for="profileStatusMessageInput">Status message</label>
+        <textarea id="profileStatusMessageInput" rows="3" maxlength="120" placeholder="Add a short status message"></textarea>
+        <label for="profileCurrentPasswordInput">Current password (required to save)</label>
+        <input id="profileCurrentPasswordInput" type="password" autocomplete="current-password" required>
+        <div id="profileSaveMessage" class="notification" role="status"></div>
+        <div class="profile-form-actions">
+          <button id="cancelProfileBtn" class="secondary" type="button">Cancel</button>
+          <button class="primary" type="submit">Save Profile</button>
+        </div>
+      </form>
+    </dialog>
+
     <main class="main-grid">
       <aside class="sidebar">
+        <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Toggle sidebar" aria-expanded="true">
+          <span class="toggle-icon">«</span>
+        </button>
         <div class="sidebar-section">
           <h2 id="menuTitle">Menu</h2>
           <nav>
-            <button class="nav-btn active" data-view="dashboard">Dashboard</button>
-            <button class="nav-btn" data-view="stations">Stations</button>
-            <button class="nav-btn" data-view="tasks">Tasks</button>
-            <button class="nav-btn" data-view="incidents">Incidents</button>
-            <button class="nav-btn" data-view="vehicles">Vehicles</button>
-            <button class="nav-btn" data-view="equipment">Equipment</button>
-            <button class="nav-btn" data-view="shifts">Shifts</button>
-            <button class="nav-btn" data-view="feedback">Feedback</button>
-            <button class="nav-btn" data-view="reports">Reports</button>
+            <button class="nav-btn active" data-view="dashboard"><span class="nav-label">Dashboard</span></button>
+            <button class="nav-btn" data-view="stations"><span class="nav-label">Stations</span></button>
+            <button class="nav-btn" data-view="tasks"><span class="nav-label">Tasks</span></button>
+            <button class="nav-btn" data-view="incidents"><span class="nav-label">Incidents</span></button>
+            <button class="nav-btn" data-view="vehicles"><span class="nav-label">Vehicles</span></button>
+            <button class="nav-btn" data-view="equipment"><span class="nav-label">Equipment</span></button>
+            <button class="nav-btn" data-view="shifts"><span class="nav-label">Shifts</span></button>
+            <button class="nav-btn" data-view="attendance"><span class="nav-label">Attendance</span></button>
+            <button class="nav-btn" data-view="notices"><span class="nav-label">Notices</span></button>
+            <button class="nav-btn" data-view="users"><span class="nav-label">Users & Roles</span></button>
+            <button class="nav-btn" data-view="regionalPersonnel"><span class="nav-label">Regional Personnel</span></button>
+            <button class="nav-btn" data-view="leave"><span class="nav-label">Leave</span></button>
+            <button class="nav-btn" data-view="training"><span class="nav-label">Training</span></button>
+            <button class="nav-btn" data-view="performance"><span class="nav-label">Performance</span></button>
+            <button class="nav-btn" data-view="finance"><span class="nav-label">Finance</span></button>
+            <button class="nav-btn" data-view="inspections"><span class="nav-label">Fire Inspections</span></button>
+            <button class="nav-btn" data-view="feedback"><span class="nav-label">Feedback</span></button>
+            <button class="nav-btn" data-view="reports"><span class="nav-label">Reports</span></button>
+            <button class="nav-btn" data-view="settings"><span class="nav-label">Settings</span></button>
           </nav>
         </div>
       </aside>
 
       <section class="content">
         <section id="dashboardView" class="view active">
+          <section class="operations-hero" aria-labelledby="operationsHeroTitle">
+            <div class="operations-hero-copy">
+              <span class="operations-eyebrow">M B E Y A &nbsp; R E G I O N · OPERATIONS CENTRE</span>
+              <h2 id="operationsHeroTitle">Ready to respond.<br><span>Ready to protect.</span></h2>
+              <p>Regional stations, response teams, incidents and resources — together in one command view.</p>
+              <div class="operations-hero-actions">
+                <button id="dashboardRecordIncidentBtn" class="hero-action-primary" type="button">Record an incident</button>
+                <a class="hero-action-secondary" href="tel:114">Emergency line <strong>114</strong></a>
+              </div>
+            </div>
+            <div class="operations-hero-seal" aria-hidden="true">
+              <img src="fire-rescue-force-logo.png" alt="">
+              <span>JESHI LA ZIMAMOTO<br>NA UOKOAJI</span>
+            </div>
+          </section>
           <div class="view-header">
             <div>
               <h2 id="dashboardTitle">Dashboard</h2>
               <p class="view-description">Overview of stations, tasks, vehicles, incidents and notifications.</p>
             </div>
           </div>
+          <section class="command-shortcuts" aria-label="Operational shortcuts">
+            <button class="command-shortcut" data-dashboard-view="stations" type="button"><span class="shortcut-index">01</span><span><strong>Stations</strong><small>Review stations and crews</small></span><span class="shortcut-arrow" aria-hidden="true">→</span></button>
+            <button class="command-shortcut" data-dashboard-view="tasks" type="button"><span class="shortcut-index">02</span><span><strong>Response tasks</strong><small>Coordinate active work</small></span><span class="shortcut-arrow" aria-hidden="true">→</span></button>
+            <button class="command-shortcut" data-dashboard-view="incidents" type="button"><span class="shortcut-index">03</span><span><strong>Incident reports</strong><small>View operational reports</small></span><span class="shortcut-arrow" aria-hidden="true">→</span></button>
+            <button class="command-shortcut" data-dashboard-view="notices" type="button"><span class="shortcut-index">04</span><span><strong>Official notices</strong><small>Read regional updates</small></span><span class="shortcut-arrow" aria-hidden="true">→</span></button>
+          </section>
           <div class="summary-grid" id="dashboardSummary"></div>
           <div class="cards-grid" id="dashboardCards"></div>
+          <section id="roleActivities" class="role-activities" aria-live="polite"></section>
         </section>
 
         <section id="stationsView" class="view">
@@ -98,6 +257,20 @@
             <button class="primary" id="newStationBtn">Add Station</button>
           </div>
           <div id="stationsList" class="table-container"></div>
+          <form id="stationOfficersForm" class="module-form hidden">
+            <input id="stationOfficersStationId" type="hidden">
+            <p id="stationOfficerSelectionCount" class="staff-selection-count" role="status"></p>
+            <h3 id="stationOfficersTitle">Manage station officers</h3>
+            <p id="stationOfficerDescription" class="view-description">Select any number of active staff members. Each person can be assigned to one station; selecting someone assigned elsewhere moves them here, and unchecking removes them from this station.</p>
+            <label for="stationOfficerSearch">Search staff</label>
+            <input id="stationOfficerSearch" type="search" placeholder="Search by name or role">
+            <div id="stationOfficerChoices" class="staff-choice-list"></div>
+            <div class="form-actions">
+              <button id="cancelStationOfficersBtn" class="secondary" type="button">Cancel</button>
+              <button id="saveStationOfficersBtn" class="primary" type="submit">Save officer assignments</button>
+            </div>
+            <div id="stationOfficersMessage" class="notification" role="status"></div>
+          </form>
         </section>
 
         <section id="tasksView" class="view">
@@ -125,18 +298,285 @@
         </section>
 
         <section id="equipmentView" class="view">
-          <h2 id="equipmentTitle">Equipment & Inventory</h2>
+          <div class="view-header">
+            <h2 id="equipmentTitle">Equipment & Inventory</h2>
+            <button class="primary" id="newEquipmentBtn">Add Equipment</button>
+          </div>
           <div id="equipmentList" class="table-container"></div>
         </section>
 
         <section id="shiftsView" class="view">
-          <h2 id="shiftsTitle">Shift Management</h2>
+          <div class="view-header">
+            <h2 id="shiftsTitle">Shift Management</h2>
+            <button class="primary" id="newShiftBtn">Add Shift</button>
+          </div>
           <div id="shiftsList" class="table-container"></div>
         </section>
 
+        <section id="attendanceView" class="view">
+          <div class="view-header">
+            <div>
+              <h2 id="attendanceTitle">Daily Attendance</h2>
+              <p id="attendanceDescription" class="view-description">Sign in for today. Attendance times are recorded by the server using East Africa Time.</p>
+            </div>
+          </div>
+          <section class="attendance-checkin-card" aria-labelledby="attendanceCheckinTitle">
+            <div>
+              <span id="attendanceKicker" class="attendance-kicker">YOUR ATTENDANCE</span>
+              <h3 id="attendanceCheckinTitle">Today</h3>
+              <p id="attendanceCheckinStatus" role="status">Loading your attendance…</p>
+            </div>
+            <button id="attendanceCheckInBtn" class="primary" type="button">Sign in for today</button>
+          </section>
+          <section id="attendanceAdminPanel" class="attendance-admin-panel hidden">
+            <div class="attendance-admin-heading">
+              <div>
+                <h3 id="attendanceRegisterTitle">Regional daily register</h3>
+                <p id="attendanceRegisterDescription" class="view-description">Review active accounts and regional personnel. Mark attendance for the selected date.</p>
+              </div>
+              <div class="attendance-filters">
+                <label for="attendanceDateInput"><span id="attendanceDateLabel">Attendance date</span>
+                  <input id="attendanceDateInput" type="date">
+                </label>
+                <label for="attendanceMonthInput"><span id="attendanceMonthLabel">Attendance month</span>
+                  <input id="attendanceMonthInput" type="month">
+                </label>
+                <label for="attendanceSearchInput"><span id="attendanceSearchLabel">Find staff</span>
+                  <input id="attendanceSearchInput" type="search" placeholder="Search name, role, or station">
+                </label>
+                <div class="attendance-admin-actions">
+                  <button id="closeAttendanceMonthBtn" class="secondary" type="button">Close completed month</button>
+                  <button id="printAttendanceBtn" class="secondary" type="button">Print attendance</button>
+                </div>
+              </div>
+            </div>
+            <p id="attendanceInputFeedback" class="notification error hidden" role="alert"></p>
+            <p id="attendancePeriodStatus" class="attendance-period-status" role="status"></p>
+            <section class="attendance-monthly-report" aria-labelledby="attendanceMonthlyTitle">
+              <h4 id="attendanceMonthlyTitle">Monthly attendance summary</h4>
+              <div id="attendanceMonthlySummary" class="summary-grid"></div>
+              <div id="attendanceChart" class="attendance-chart-wrap"></div>
+              <h4 id="attendanceHistoryTitle">All attendance records for this month</h4>
+              <p id="attendanceHistoryDescription" class="view-description">Every saved check-in and administrator update for the selected month.</p>
+              <div id="attendanceMonthlyList" class="table-container"></div>
+            </section>
+            <h4 id="attendanceDailyTitle">Staff attendance for selected day</h4>
+            <div id="attendanceSummary" class="summary-grid"></div>
+            <div id="attendanceList" class="table-container"></div>
+          </section>
+        </section>
+
+        <section id="noticesView" class="view">
+          <div class="view-header"><div><h2>Notice Board</h2><p class="view-description">Official announcements and operational updates.</p></div><button id="newNoticeBtn" class="primary hidden" type="button">Create Notice</button></div>
+          <form id="noticeForm" class="module-form hidden">
+            <input id="noticeId" type="hidden">
+            <label for="noticeTitleInput">Title</label><input id="noticeTitleInput" maxlength="200" required>
+            <label for="noticeMessageInput">Message</label><textarea id="noticeMessageInput" rows="3" maxlength="2000"></textarea>
+            <div class="module-form-grid">
+              <label>Type<select id="noticeTypeInput"><option value="info">Information</option><option value="alert">Alert</option><option value="warning">Warning</option><option value="event">Event</option></select></label>
+              <label>Date<input id="noticeDateInput" type="date" required></label>
+            </div>
+            <div class="form-actions"><button class="secondary" id="cancelNoticeEditBtn" type="button">Cancel</button><button class="primary" type="submit">Save Notice</button></div>
+          </form>
+          <div id="noticesList" class="table-container"></div>
+        </section>
+
+        <section id="usersView" class="view">
+          <div class="view-header"><div><h2>User Administration</h2><p class="view-description">Review staff accounts, roles, and station assignments.</p></div><button id="newUserBtn" class="primary hidden" type="button">Add User</button></div>
+          <form id="userForm" class="module-form hidden">
+            <input id="managedUserId" type="hidden">
+            <h3 id="userFormTitle">Create Staff Account</h3>
+            <div class="module-form-grid">
+              <label>Full name<input id="managedUserName" maxlength="100" required></label>
+              <label>Username / checknumber<input id="managedUserChecknumber" maxlength="80" required></label>
+              <label>Password (at least 12 characters; required for new account)<input id="managedUserPassword" type="password" minlength="12"></label>
+              <label>Email<input id="managedUserEmail" type="email" maxlength="200"></label>
+              <label>Phone<input id="managedUserPhone" maxlength="40"></label>
+              <label>Role<select id="managedUserRole" required></select></label>
+              <label>Station<select id="managedUserStation"><option value="">No station</option></select></label>
+              <label class="check-row"><input id="managedUserActive" type="checkbox" checked> Account active</label>
+            </div>
+            <div class="form-actions"><button class="secondary" id="cancelUserEditBtn" type="button">Cancel</button><button class="primary" type="submit">Save Account</button></div>
+            <div id="userFormMessage" class="notification"></div>
+          </form>
+          <div id="usersList" class="table-container"></div>
+          <h3 class="section-subheading">Available roles</h3>
+          <div id="rolesList" class="table-container"></div>
+        </section>
+
+        <section id="regionalPersonnelView" class="view">
+          <div class="view-header regional-personnel-header">
+            <div>
+              <h2>Regional Personnel</h2>
+              <p id="regionalPersonnelDescription" class="view-description">A clear, printable view of staff accounts and regional personnel records.</p>
+            </div>
+            <div class="regional-personnel-actions">
+              <button id="printRegionalPersonnelBtn" class="secondary" type="button">Print roster</button>
+              <label id="regionalPersonnelLogoLabel" class="secondary upload-logo-button">Use official logo
+                <input id="regionalPersonnelLogoInput" type="file" accept="image/png,image/jpeg,image/webp">
+              </label>
+              <button id="uploadRegionalPersonnelCsvBtn" class="secondary" type="button">Import CSV</button>
+              <button id="downloadRegionalPersonnelTemplateBtn" class="secondary" type="button">CSV template</button>
+              <input id="regionalPersonnelCsvInput" type="file" accept=".csv,text/csv" hidden>
+              <button id="newRegionalPersonnelBtn" class="primary" type="button">Add Regional Personnel</button>
+            </div>
+          </div>
+          <section id="regionalPersonnelPrintHeader" class="regional-print-header">
+            <img id="regionalPersonnelPrintLogo" class="hidden" alt="Official fire and rescue logo">
+            <div><span>JESHI LA ZIMAMOTO NA UOKOAJI</span><h2>REGIONAL PERSONNEL REGISTER</h2><p>Mbeya Fire and Rescue</p></div>
+            <div class="regional-print-meta"><span>Printed</span><strong id="regionalPersonnelPrintedAt"></strong></div>
+          </section>
+          <section id="regionalPersonnelImportPanel" class="import-panel hidden">
+            <div class="view-header">
+              <div><h3>Import personnel from CSV</h3><p class="view-description">CSV columns: name, role, email, phone, station, availability, status_message.</p></div>
+              <button id="closeRegionalPersonnelImportBtn" class="secondary" type="button">Close</button>
+            </div>
+            <label class="csv-drop-zone" for="regionalPersonnelCsvInput">
+              <strong>Select a CSV file</strong>
+              <span>Choose a comma-separated file up to 2 MB. Review the preview before importing.</span>
+            </label>
+            <div id="regionalPersonnelImportMessage" class="notification" role="status"></div>
+            <div id="regionalPersonnelImportPreview"></div>
+            <div class="form-actions"><button id="confirmRegionalPersonnelImportBtn" class="primary hidden" type="button">Import personnel</button></div>
+          </section>
+          <form id="regionalPersonnelForm" class="module-form hidden">
+            <input id="regionalPersonnelId" type="hidden">
+            <h3 id="regionalPersonnelFormTitle">Add Personnel Record</h3>
+            <p id="regionalPersonnelFormDescription" class="view-description">This adds someone to the regional roster only. It does not create a login account.</p>
+            <div class="module-form-grid">
+              <label>Full name<input id="regionalPersonnelName" maxlength="100" required></label>
+              <label>Role or position<input id="regionalPersonnelRole" maxlength="100" required></label>
+              <label>Email<input id="regionalPersonnelEmail" type="email" maxlength="200"></label>
+              <label>Phone<input id="regionalPersonnelPhone" maxlength="40"></label>
+              <label>Station<select id="regionalPersonnelStation"><option value="">Unassigned</option></select></label>
+              <label><span id="regionalPersonnelAvailabilityFieldLabel">Availability</span>
+                <select id="regionalPersonnelNewAvailability">
+                  <option value="Available">Available</option>
+                  <option value="On duty">On duty</option>
+                  <option value="Off duty">Off duty</option>
+                  <option value="On leave">On leave</option>
+                </select>
+              </label>
+            </div>
+            <label>Status message<input id="regionalPersonnelStatusMessage" maxlength="120"></label>
+            <div class="form-actions">
+              <button id="cancelRegionalPersonnelBtn" class="secondary" type="button">Cancel</button>
+              <button class="primary" type="submit">Save Personnel</button>
+            </div>
+            <div id="regionalPersonnelFormMessage" class="notification" role="status"></div>
+          </form>
+          <div id="regionalPersonnelSummary" class="summary-grid"></div>
+          <div class="personnel-filters">
+            <label><span id="regionalPersonnelAvailabilityLabel">Availability</span>
+              <select id="regionalPersonnelAvailability">
+                <option value="all">All active staff</option>
+                <option value="Available">Available</option>
+                <option value="On duty">On duty</option>
+                <option value="Off duty">Off duty</option>
+                <option value="On leave">On leave</option>
+              </select>
+            </label>
+            <label><span id="regionalPersonnelSearchLabel">Search</span>
+              <input id="regionalPersonnelSearch" type="search" placeholder="Search by name, username, role, or station">
+            </label>
+          </div>
+          <div id="regionalPersonnelList" class="table-container"></div>
+        </section>
+
+        <section id="leaveView" class="view">
+          <div class="view-header"><div><h2>Leave Requests</h2><p class="view-description">Submit requests and follow their approval status.</p></div></div>
+          <form id="leaveForm" class="module-form">
+            <div class="module-form-grid">
+              <label>Leave type<select id="leaveTypeInput"><option>Annual</option><option>Sick</option><option>Family</option><option>Emergency</option><option>Other</option></select></label>
+              <label>From<input id="leaveStartInput" type="date" required></label>
+              <label>To<input id="leaveEndInput" type="date" required></label>
+            </div>
+            <label>Reason<textarea id="leaveReasonInput" rows="3" maxlength="1000" required></textarea></label>
+            <div class="form-actions"><button class="primary" type="submit">Submit Request</button></div>
+            <div id="leaveFormMessage" class="notification"></div>
+          </form>
+          <div id="leaveList" class="table-container"></div>
+        </section>
+
+        <section id="trainingView" class="view">
+          <div class="view-header"><div><h2>Training Management</h2><p class="view-description">Schedule training and track participation.</p></div><button id="newTrainingBtn" class="primary hidden" type="button">Schedule Training</button></div>
+          <form id="trainingForm" class="module-form hidden">
+            <input id="trainingId" type="hidden">
+            <div class="module-form-grid">
+              <label>Training name<input id="trainingNameInput" maxlength="200" required></label>
+              <label>Coordinator<input id="trainingCoordinatorInput" maxlength="120" required></label>
+              <label>Date<input id="trainingDateInput" type="date" required></label>
+              <label>Location<input id="trainingLocationInput" maxlength="200" required></label>
+              <label>Participants<input id="trainingParticipantsInput" type="number" min="1" max="10000" value="1" required></label>
+              <label>Status<select id="trainingStatusInput"><option>Upcoming</option><option>In Progress</option><option>Completed</option><option>Cancelled</option></select></label>
+            </div>
+            <label>Description<textarea id="trainingDescriptionInput" rows="3" maxlength="2000"></textarea></label>
+            <div class="form-actions"><button class="secondary" id="cancelTrainingEditBtn" type="button">Cancel</button><button class="primary" type="submit">Save Training</button></div>
+          </form>
+          <div id="trainingList" class="table-container"></div>
+        </section>
+
+        <section id="performanceView" class="view">
+          <div class="view-header"><div><h2>Performance Goals</h2><p class="view-description">Set measurable goals and track progress.</p></div></div>
+          <form id="performanceForm" class="module-form">
+            <input id="performanceId" type="hidden">
+            <div class="module-form-grid">
+              <label>Goal<input id="performanceNameInput" maxlength="200" required></label>
+              <label>Measure<input id="performanceMetricInput" maxlength="200"></label>
+              <label>Deadline<input id="performanceDeadlineInput" type="date" required></label>
+              <label>Progress (%)<input id="performanceProgressInput" type="number" min="0" max="100" value="0" required></label>
+              <label>Status<select id="performanceStatusInput"><option>Pending</option><option>In Progress</option><option>Completed</option></select></label>
+            </div>
+            <div class="form-actions"><button class="secondary hidden" id="cancelPerformanceEditBtn" type="button">Cancel</button><button class="primary" type="submit">Save Goal</button></div>
+            <div id="performanceFormMessage" class="notification"></div>
+          </form>
+          <div id="performanceList" class="table-container"></div>
+        </section>
+
+        <section id="financeView" class="view">
+          <div class="view-header"><div><h2>Finance & Accounts</h2><p class="view-description">Record income and expenses and verify pending entries.</p></div></div>
+          <form id="financeForm" class="module-form">
+            <input id="financeId" type="hidden">
+            <div class="module-form-grid">
+              <label>Date<input id="financeDateInput" type="date" required></label>
+              <label>Entry type<select id="financeTypeInput"><option value="expense">Expense</option><option value="income">Income</option></select></label>
+              <label>Category<input id="financeCategoryInput" maxlength="100" placeholder="Fuel, PPE, station supplies" required></label>
+              <label>Amount (TZS)<input id="financeAmountInput" type="number" min="1" step="0.01" required></label>
+              <label>Reference<input id="financeReferenceInput" maxlength="100"></label>
+            </div>
+            <label>Description<textarea id="financeDescriptionInput" rows="3" maxlength="1000" required></textarea></label>
+            <div class="form-actions"><button class="secondary hidden" id="cancelFinanceEditBtn" type="button">Cancel</button><button class="primary" type="submit">Save Entry</button></div>
+            <div id="financeFormMessage" class="notification"></div>
+          </form>
+          <div id="financeSummary" class="summary-grid"></div>
+          <div id="financeList" class="table-container"></div>
+        </section>
+
+        <section id="inspectionsView" class="view">
+          <div class="view-header"><div><h2>Fire Safety Inspections</h2><p class="view-description">Record hazards, compliance outcomes, and follow-up actions.</p></div><button id="newInspectionBtn" class="primary" type="button">Record Inspection</button></div>
+          <form id="inspectionForm" class="module-form hidden">
+            <input id="inspectionId" type="hidden">
+            <div class="module-form-grid">
+              <label>Station<select id="inspectionStationInput"><option value="">Other / community site</option></select></label>
+              <label>Inspection date<input id="inspectionDateInput" type="date" required></label>
+              <label>Inspection type<input id="inspectionTypeInput" maxlength="120" placeholder="Routine, premises, event" required></label>
+              <label>Risk level<select id="inspectionRiskInput"><option value="low">Low</option><option value="moderate">Moderate</option><option value="high">High</option><option value="critical">Critical</option></select></label>
+              <label>Outcome<select id="inspectionOutcomeInput"><option value="compliant">Compliant</option><option value="action_required">Action required</option><option value="unsafe">Unsafe</option></select></label>
+              <label>Follow-up date<input id="inspectionFollowUpInput" type="date"></label>
+            </div>
+            <label>Findings<textarea id="inspectionFindingsInput" rows="3" maxlength="2000" required></textarea></label>
+            <label>Corrective action<textarea id="inspectionActionInput" rows="2" maxlength="2000"></textarea></label>
+            <div class="form-actions"><button class="secondary" id="cancelInspectionEditBtn" type="button">Cancel</button><button class="primary" type="submit">Save Inspection</button></div>
+          </form>
+          <div id="inspectionList" class="table-container"></div>
+        </section>
+
         <section id="feedbackView" class="view">
-          <h2 id="feedbackTitle">Feedback</h2>
+          <div class="view-header">
+            <h2 id="feedbackTitle">Feedback</h2>
+          </div>
           <div class="feedback-form">
+            <h3>Submit Feedback</h3>
             <label>Officer / Station</label>
             <input id="feedbackSource" type="text" placeholder="Name or station">
             <label>Message</label>
@@ -144,11 +584,75 @@
             <button class="primary" id="submitFeedbackBtn">Submit Feedback</button>
             <div id="feedbackConfirmation" class="notification"></div>
           </div>
+          <div id="feedbackList" class="table-container"></div>
         </section>
 
         <section id="reportsView" class="view">
           <h2 id="reportsTitle">Reports & Analytics</h2>
           <div class="report-cards" id="reportCards"></div>
+        </section>
+
+        <section id="settingsView" class="view">
+          <div class="view-header"><div><h2>System Settings</h2><p class="view-description">Personal preferences and administrator data tools.</p></div></div>
+          <form id="settingsForm" class="module-form settings-form">
+            <div class="module-form-grid">
+              <label>Appearance<select id="settingsTheme"><option value="dark">Dark</option><option value="light">Light</option></select></label>
+              <label>Language<select id="settingsLanguage"><option value="sw">Kiswahili</option><option value="en">English</option></select></label>
+              <label class="check-row"><input id="settingsEmailNotifications" type="checkbox"> Email notifications</label>
+              <label class="check-row"><input id="settingsPushNotifications" type="checkbox"> Browser notifications</label>
+            </div>
+            <div class="form-actions"><button class="primary" type="submit">Save Preferences</button></div>
+            <div id="settingsFormMessage" class="notification"></div>
+          </form>
+          <form id="displaySettingsForm" class="module-form settings-preferences-form">
+            <h3>Display preferences</h3>
+            <p class="view-description">Adjust the workspace for your device and working style.</p>
+            <div class="module-form-grid">
+              <label class="check-row"><input id="compactTablesSetting" type="checkbox"> Compact tables</label>
+              <label class="check-row"><input id="reduceMotionSetting" type="checkbox"> Reduce animations</label>
+            </div>
+            <div class="form-actions">
+              <button id="resetDisplaySettingsBtn" class="secondary" type="button">Reset display</button>
+              <button class="primary" type="submit">Save display</button>
+            </div>
+            <div id="displaySettingsMessage" class="notification" role="status"></div>
+          </form>
+          <form id="printSettingsForm" class="module-form settings-preferences-form">
+            <h3>Print & report layout</h3>
+            <p class="view-description">Choose the page format for printing any activity or report.</p>
+            <div class="module-form-grid">
+              <label>Paper size<select id="printPaperSetting"><option value="a4">A4</option><option value="letter">Letter</option></select></label>
+              <label>Page orientation<select id="printOrientationSetting"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select></label>
+              <label class="check-row"><input id="printLogoSetting" type="checkbox"> Include official force logo</label>
+              <label class="check-row"><input id="printTimestampSetting" type="checkbox"> Include print date and time</label>
+              <label class="form-full">Report footer<input id="printFooterSetting" type="text" maxlength="100" placeholder="Mbeya Fire and Rescue · Official Copy"></label>
+            </div>
+            <div class="form-actions">
+              <button id="resetPrintSettingsBtn" class="secondary" type="button">Reset print settings</button>
+              <button class="primary" type="submit">Save print settings</button>
+            </div>
+            <div id="printSettingsMessage" class="notification" role="status"></div>
+          </form>
+          <div class="settings-tools admin-only">
+            <div class="settings-tool login-artwork-tool">
+              <div>
+                <h3>Login photo slideshow</h3>
+                <p>Add up to five PNG, JPEG, or WebP photos. Each photo must be 1.2 MB or smaller. Photos are shown on the public sign-in page.</p>
+                <div id="loginGallerySettingsPreview" class="login-gallery-settings-preview"></div>
+              </div>
+              <div class="login-artwork-controls">
+                <label>Change photo every<select id="loginSlideshowInterval"><option value="4">4 seconds</option><option value="6" selected>6 seconds</option><option value="8">8 seconds</option><option value="10">10 seconds</option></select></label>
+                <label class="secondary import-file-label" for="loginArtworkInput">Add photos</label>
+                <input id="loginArtworkInput" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
+                <button id="removeLoginArtworkBtn" class="secondary" type="button">Clear slideshow</button>
+                <button id="saveLoginArtworkBtn" class="primary" type="button">Publish slideshow</button>
+              </div>
+              <div id="loginArtworkMessage" class="notification" role="status"></div>
+            </div>
+            <div class="settings-tool"><div><h3>Export backup</h3><p>Download a JSON backup of operational records.</p></div><button id="exportBackupBtn" class="secondary" type="button">Export JSON</button></div>
+            <div class="settings-tool"><div><h3>Import backup</h3><p>Import a standalone dashboard or Zimamoto JSON export. Records are added without replacing existing data. Passwords and accounts are never imported; manage staff accounts above.</p></div><label class="secondary import-file-label">Choose JSON<input id="importBackupInput" type="file" accept="application/json,.json" hidden></label></div>
+            <div id="backupMessage" class="notification"></div>
+          </div>
         </section>
       </section>
     </main>
