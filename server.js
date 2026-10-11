@@ -38,6 +38,20 @@ function initSchema() {
       phone TEXT,
       FOREIGN KEY(role_code) REFERENCES roles(code)
     );
+    CREATE TABLE IF NOT EXISTS regional_personnel (
+      id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      role_title TEXT NOT NULL,
+      email TEXT,
+      phone TEXT,
+      station_id INTEGER,
+      availability TEXT NOT NULL DEFAULT 'Available',
+      status_message TEXT NOT NULL DEFAULT '',
+      created_by INTEGER,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY(station_id) REFERENCES stations(id) ON DELETE SET NULL,
+      FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL
+    );
     CREATE TABLE IF NOT EXISTS stations (
       id INTEGER PRIMARY KEY,
       name TEXT NOT NULL,
@@ -257,6 +271,16 @@ function normalizeRow(row) {
     equipment: parseJson(row.equipment),
     media: parseJson(row.media)
   };
+}
+
+function stationRowToObject(row) {
+  const station = normalizeRow(row);
+  const assignments = db.prepare('SELECT name, active FROM users WHERE station_id = ? ORDER BY name').all(station.id);
+  const assignedNames = new Set(assignments.map(user => user.name));
+  const assignedOfficers = assignments.filter(user => user.active).map(user => user.name);
+  station.legacyOfficers = station.officers.filter(name => !assignedNames.has(name));
+  station.officers = [...new Set([...station.officers, ...assignedOfficers])];
+  return station;
 }
 
 function seedData() {
@@ -561,12 +585,132 @@ app.put('/api/users/:id/profile', (req, res) => {
 app.get('/api/users', (req, res) => {
   if (!hasFullAccess(req.user.roleCode) && req.user.roleCode !== 'hr') return res.status(403).json({ message: 'HR or administrator access required' });
   const rows = db.prepare(`SELECT u.id, u.checknumber, u.name, u.email, u.phone, r.label AS role,
-    u.role_code AS roleCode, u.station_id, u.active
-    FROM users u JOIN roles r ON u.role_code = r.code ORDER BY u.name`).all();
+    u.role_code AS roleCode, u.station_id, u.active, u.availability, u.status_message,
+    st.name AS stationName
+    FROM users u JOIN roles r ON u.role_code = r.code
+    LEFT JOIN stations st ON st.id = u.station_id ORDER BY u.name`).all();
   res.json(rows);
 });
 
-app.get('/api/staff-status', requireRoles('admin', 'system_manager'), (_req, res) => {
+app.get('/api/regional-personnel', requireRoles('admin', 'system_manager', 'hr'), (_req, res) => {
+  const accounts = db.prepare(`SELECT u.id, u.name, u.checknumber, u.email, u.phone, u.availability,
+    u.status_message, r.label AS role, u.role_code AS roleCode, u.station_id, st.name AS stationName,
+    'Account' AS recordType
+    FROM users u JOIN roles r ON r.code = u.role_code
+    LEFT JOIN stations st ON st.id = u.station_id
+    WHERE u.active = 1 ORDER BY u.name`).all();
+  const personnel = db.prepare(`SELECT NULL AS id, p.id AS personnelId, p.name, NULL AS checknumber,
+    p.email, p.phone, p.availability, p.status_message, p.role_title AS role, NULL AS roleCode,
+    p.station_id, st.name AS stationName, 'Personnel record' AS recordType
+    FROM regional_personnel p LEFT JOIN stations st ON st.id = p.station_id`).all();
+  res.json([...accounts, ...personnel].sort((a, b) => a.name.localeCompare(b.name)));
+});
+
+app.post('/api/regional-personnel', requireRoles('admin', 'system_manager', 'hr'), (req, res) => {
+  const { name, role_title: roleTitle, email, phone, station_id: stationId, availability, status_message: statusMessage } = req.body;
+  if (typeof name !== 'string' || !name.trim() || name.trim().length > 100) {
+    return res.status(400).json({ message: 'Name is required and must be 100 characters or fewer' });
+  }
+  if (typeof roleTitle !== 'string' || !roleTitle.trim() || roleTitle.trim().length > 100) {
+    return res.status(400).json({ message: 'Role or position is required and must be 100 characters or fewer' });
+  }
+  if (email != null && (typeof email !== 'string' || email.length > 200)) {
+    return res.status(400).json({ message: 'Email must be 200 characters or fewer' });
+  }
+  if (phone != null && (typeof phone !== 'string' || phone.length > 40)) {
+    return res.status(400).json({ message: 'Phone must be 40 characters or fewer' });
+  }
+  if (stationId != null && stationId !== '') {
+    const parsedStationId = Number(stationId);
+    if (!Number.isInteger(parsedStationId) || parsedStationId < 1 || !db.prepare('SELECT id FROM stations WHERE id = ?').get(parsedStationId)) {
+      return res.status(400).json({ message: 'Choose a valid station' });
+    }
+  }
+  const allowedAvailability = new Set(['Available', 'On duty', 'Off duty', 'On leave']);
+  if (availability !== undefined && !allowedAvailability.has(availability)) {
+    return res.status(400).json({ message: 'Choose a valid availability status' });
+  }
+  if (statusMessage != null && (typeof statusMessage !== 'string' || statusMessage.length > 120)) {
+    return res.status(400).json({ message: 'Status message must be 120 characters or fewer' });
+  }
+  const result = db.prepare(`INSERT INTO regional_personnel
+    (name, role_title, email, phone, station_id, availability, status_message, created_by, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(name.trim(), roleTitle.trim(), email?.trim() || null, phone?.trim() || null,
+      stationId ? Number(stationId) : null, availability || 'Available', statusMessage?.trim() || '',
+      req.user.id, new Date().toISOString());
+  recordAudit(req, 'create', 'regional_personnel', result.lastInsertRowid, `role=${roleTitle.trim()}`);
+  res.status(201).json({ personnelId: result.lastInsertRowid, name: name.trim(), role: roleTitle.trim() });
+});
+
+app.post('/api/regional-personnel/import', requireRoles('admin', 'system_manager', 'hr'), (req, res) => {
+  const { personnel } = req.body;
+  if (!Array.isArray(personnel) || personnel.length === 0 || personnel.length > 500) {
+    return res.status(400).json({ message: 'Upload between 1 and 500 personnel records per CSV file' });
+  }
+
+  const allowedAvailability = new Set(['Available', 'On duty', 'Off duty', 'On leave']);
+  const stationRows = db.prepare('SELECT id, name FROM stations').all();
+  const stationByName = new Map(stationRows.map(station => [station.name.trim().toLowerCase(), station.id]));
+  const insertRows = [];
+  const errors = [];
+  personnel.forEach((row, index) => {
+    const rowNumber = index + 2;
+    if (!row || typeof row !== 'object' || Array.isArray(row)) {
+      errors.push(`Row ${rowNumber}: invalid record`);
+      return;
+    }
+    const name = row.name;
+    const roleTitle = row.role_title;
+    const email = row.email;
+    const phone = row.phone;
+    const statusMessage = row.status_message;
+    const availability = row.availability || 'Available';
+    const hasStation = row.station != null && String(row.station).trim() !== '';
+    let stationId = null;
+    if (typeof name !== 'string' || !name.trim() || name.trim().length > 100) errors.push(`Row ${rowNumber}: name is required (up to 100 characters)`);
+    if (typeof roleTitle !== 'string' || !roleTitle.trim() || roleTitle.trim().length > 100) errors.push(`Row ${rowNumber}: role is required (up to 100 characters)`);
+    if (email != null && (typeof email !== 'string' || email.length > 200)) errors.push(`Row ${rowNumber}: email must be up to 200 characters`);
+    if (phone != null && (typeof phone !== 'string' || phone.length > 40)) errors.push(`Row ${rowNumber}: phone must be up to 40 characters`);
+    if (!allowedAvailability.has(availability)) errors.push(`Row ${rowNumber}: availability must be Available, On duty, Off duty, or On leave`);
+    if (statusMessage != null && (typeof statusMessage !== 'string' || statusMessage.length > 120)) errors.push(`Row ${rowNumber}: status message must be up to 120 characters`);
+    if (hasStation) {
+      const stationValue = String(row.station).trim();
+      const byName = stationByName.get(stationValue.toLowerCase());
+      const numericStationId = Number(stationValue);
+      stationId = byName || (Number.isInteger(numericStationId) ? numericStationId : null);
+      if (!stationId || !stationRows.some(station => station.id === stationId)) errors.push(`Row ${rowNumber}: station "${stationValue}" was not found`);
+    }
+    if (typeof name === 'string' && typeof roleTitle === 'string'
+      && name.trim() && name.trim().length <= 100 && roleTitle.trim() && roleTitle.trim().length <= 100
+      && (email == null || typeof email === 'string' && email.length <= 200)
+      && (phone == null || typeof phone === 'string' && phone.length <= 40)
+      && allowedAvailability.has(availability)
+      && (statusMessage == null || typeof statusMessage === 'string' && statusMessage.length <= 120)
+      && (!hasStation || stationId)) {
+      insertRows.push({
+        name: name.trim(), roleTitle: roleTitle.trim(), email: email?.trim() || null,
+        phone: phone?.trim() || null, statusMessage: statusMessage?.trim() || '',
+        availability, stationId
+      });
+    }
+  });
+  if (errors.length) return res.status(400).json({ message: 'Fix the CSV rows with errors before importing', errors });
+
+  const importRows = db.transaction(() => {
+    const insert = db.prepare(`INSERT INTO regional_personnel
+      (name, role_title, email, phone, station_id, availability, status_message, created_by, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    const createdAt = new Date().toISOString();
+    insertRows.forEach(row => insert.run(row.name, row.roleTitle, row.email, row.phone, row.stationId,
+      row.availability, row.statusMessage, req.user.id, createdAt));
+    recordAudit(req, 'import', 'regional_personnel', null, `count=${insertRows.length}`);
+  });
+  importRows();
+  res.status(201).json({ message: `Imported ${insertRows.length} personnel records`, count: insertRows.length });
+});
+
+app.get('/api/staff-status', requireRoles('admin', 'system_manager', 'hr'), (_req, res) => {
   const rows = db.prepare(`SELECT u.id, u.name, u.checknumber, u.availability, u.status_message, r.label AS role
     FROM users u JOIN roles r ON r.code = u.role_code ORDER BY u.name`).all();
   res.json(rows);
@@ -608,7 +752,7 @@ app.put('/api/users/:id', requireRoles('admin'), (req, res) => {
     FROM users WHERE id = ?`).get(id));
 });
 
-app.get('/api/roles', (req, res) => {
+app.get('/api/roles', requireRoles('hr'), (req, res) => {
   res.json(db.prepare('SELECT * FROM roles').all());
 });
 
@@ -655,14 +799,13 @@ app.delete('/api/notices/:id', requireRoles('admin', 'station'), (req, res) => {
 });
 
 app.get('/api/leave', (req, res) => {
-  if (!['admin', 'hr'].includes(req.user.roleCode)) {
-    return res.status(403).json({ message: 'Only the regional administrator and HR can view leave requests' });
-  }
+  const canReview = hasFullAccess(req.user.roleCode) || ['station', 'shift', 'hr'].includes(req.user.roleCode);
   const query = `SELECT l.*, u.name AS employee, u.checknumber, reviewer.name AS reviewer
     FROM leave_requests l JOIN users u ON u.id = l.user_id
     LEFT JOIN users reviewer ON reviewer.id = l.reviewed_by
+    ${canReview ? '' : 'WHERE l.user_id = ?'}
     ORDER BY l.created_at DESC`;
-  res.json(db.prepare(query).all());
+  res.json(canReview ? db.prepare(query).all() : db.prepare(query).all(req.user.id));
 });
 
 app.post('/api/leave', (req, res) => {
@@ -676,12 +819,7 @@ app.post('/api/leave', (req, res) => {
   res.status(201).json({ message: 'Leave request submitted' });
 });
 
-app.patch('/api/leave/:id/review', (req, res, next) => {
-  if (!['admin', 'hr'].includes(req.user.roleCode)) {
-    return res.status(403).json({ message: 'Only the regional administrator and HR can review leave requests' });
-  }
-  next();
-}, (req, res) => {
+app.patch('/api/leave/:id/review', requireRoles('admin', 'station', 'shift', 'hr'), (req, res) => {
   const id = Number(req.params.id);
   const { status, review_note = '' } = req.body;
   if (!['approved', 'rejected'].includes(status)) return res.status(400).json({ message: 'Review status must be approved or rejected' });
@@ -695,12 +833,12 @@ app.patch('/api/leave/:id/review', (req, res, next) => {
 });
 
 app.delete('/api/leave/:id', (req, res) => {
-  if (!['admin', 'hr'].includes(req.user.roleCode)) {
-    return res.status(403).json({ message: 'Only the regional administrator and HR can manage leave requests' });
-  }
   const id = Number(req.params.id);
   const request = db.prepare('SELECT * FROM leave_requests WHERE id = ?').get(id);
   if (!request) return res.status(404).json({ message: 'Leave request not found' });
+  const mayDelete = hasFullAccess(req.user.roleCode) || req.user.roleCode === 'hr' ||
+    request.user_id === req.user.id && request.status === 'pending';
+  if (!mayDelete) return res.status(403).json({ message: 'You can only remove your own pending request' });
   db.prepare('DELETE FROM leave_requests WHERE id = ?').run(id);
   recordAudit(req, 'delete', 'leave_request', id);
   res.json(request);
@@ -1130,7 +1268,7 @@ app.get('/api/dashboard', (req, res) => {
   const fireInspections = db.prepare('SELECT COUNT(*) AS count FROM fire_inspections').get().count;
   const financePending = db.prepare("SELECT COUNT(*) AS count FROM finance_entries WHERE status = 'pending'").get().count;
 
-  const stations = db.prepare('SELECT * FROM stations').all().map(normalizeRow);
+  const stations = db.prepare('SELECT * FROM stations').all().map(stationRowToObject);
   const tasks = db.prepare('SELECT t.*, s.name AS assignedStation FROM tasks t LEFT JOIN stations s ON t.assigned_station_id = s.id').all().map(taskRowToObject);
   const incidents = db.prepare('SELECT * FROM incidents').all().map(incidentRowToObject);
   const vehicles = db.prepare('SELECT * FROM vehicles').all().map(vehicleRowToObject);
@@ -1170,14 +1308,14 @@ app.get('/api/dashboard', (req, res) => {
 });
 
 app.get('/api/stations', (req, res) => {
-  res.json(db.prepare('SELECT * FROM stations').all().map(normalizeRow));
+  res.json(db.prepare('SELECT * FROM stations').all().map(stationRowToObject));
 });
 
 app.post('/api/stations', requireRoles('admin', 'station'), (req, res) => {
   const { name, location, commander, officers, status } = req.body;
   const officersJson = JSON.stringify(Array.isArray(officers) ? officers : String(officers || '').split(',').map(o => o.trim()).filter(Boolean));
   const result = db.prepare('INSERT INTO stations (name, location, commander, officers, status) VALUES (?, ?, ?, ?, ?)').run(name, location, commander, officersJson, status || 'active');
-  res.status(201).json(db.prepare('SELECT * FROM stations WHERE id = ?').get(result.lastInsertRowid));
+  res.status(201).json(stationRowToObject(db.prepare('SELECT * FROM stations WHERE id = ?').get(result.lastInsertRowid)));
 });
 
 app.put('/api/stations/:id', requireRoles('admin', 'station'), (req, res) => {
@@ -1185,9 +1323,54 @@ app.put('/api/stations/:id', requireRoles('admin', 'station'), (req, res) => {
   const existing = db.prepare('SELECT * FROM stations WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Station not found' });
   const { name, location, commander, officers, status } = req.body;
-  const officersJson = JSON.stringify(Array.isArray(officers) ? officers : String(officers || '').split(',').map(o => o.trim()).filter(Boolean));
+  const officersJson = officers === undefined
+    ? existing.officers
+    : JSON.stringify(Array.isArray(officers) ? officers : String(officers || '').split(',').map(o => o.trim()).filter(Boolean));
   db.prepare('UPDATE stations SET name = ?, location = ?, commander = ?, officers = ?, status = ? WHERE id = ?').run(name || existing.name, location || existing.location, commander || existing.commander, officersJson, status || existing.status, id);
-  res.json(db.prepare('SELECT * FROM stations WHERE id = ?').get(id));
+  res.json(stationRowToObject(db.prepare('SELECT * FROM stations WHERE id = ?').get(id)));
+});
+
+app.get('/api/stations/:id/officer-candidates', requireRoles('admin', 'system_manager', 'station'), (req, res) => {
+  const stationId = Number(req.params.id);
+  if (!db.prepare('SELECT id FROM stations WHERE id = ?').get(stationId)) return res.status(404).json({ message: 'Station not found' });
+  const rows = db.prepare(`SELECT u.id, u.name, u.role_code AS roleCode, r.label AS role,
+    u.station_id, u.availability, st.name AS stationName
+    FROM users u JOIN roles r ON r.code = u.role_code
+    LEFT JOIN stations st ON st.id = u.station_id
+    WHERE u.active = 1 ORDER BY u.name`).all();
+  res.json(rows);
+});
+
+app.put('/api/stations/:id/officers', requireRoles('admin', 'system_manager', 'station'), (req, res) => {
+  const stationId = Number(req.params.id);
+  const existing = db.prepare('SELECT * FROM stations WHERE id = ?').get(stationId);
+  if (!existing) return res.status(404).json({ message: 'Station not found' });
+  const { officer_ids: officerIds } = req.body;
+  if (!Array.isArray(officerIds) || officerIds.some(id => !Number.isInteger(Number(id)) || Number(id) < 1)) {
+    return res.status(400).json({ message: 'Choose a valid list of staff members' });
+  }
+  const selectedIds = officerIds.map(Number);
+  if (new Set(selectedIds).size !== selectedIds.length) {
+    return res.status(400).json({ message: 'A staff member can only be selected once' });
+  }
+  const activeUsers = db.prepare('SELECT id, name FROM users WHERE active = 1').all();
+  const activeUserIds = new Set(activeUsers.map(user => user.id));
+  if (selectedIds.some(userId => !activeUserIds.has(userId))) {
+    return res.status(400).json({ message: 'One or more selected staff accounts are unavailable' });
+  }
+
+  const currentUsers = db.prepare('SELECT name FROM users WHERE station_id = ?').all(stationId);
+  const currentNames = new Set(currentUsers.map(user => user.name));
+  const legacyOfficers = parseJson(existing.officers).filter(name => !currentNames.has(name));
+  const assignOfficers = db.transaction(() => {
+    db.prepare('UPDATE users SET station_id = NULL WHERE station_id = ?').run(stationId);
+    const assignOfficer = db.prepare('UPDATE users SET station_id = ? WHERE id = ?');
+    selectedIds.forEach(userId => assignOfficer.run(stationId, userId));
+    db.prepare('UPDATE stations SET officers = ? WHERE id = ?').run(JSON.stringify(legacyOfficers), stationId);
+    recordAudit(req, 'assign', 'station_officers', stationId, `staff=${selectedIds.join(',')}`);
+  });
+  assignOfficers();
+  res.json(stationRowToObject(db.prepare('SELECT * FROM stations WHERE id = ?').get(stationId)));
 });
 
 app.delete('/api/stations/:id', requireRoles('admin', 'station'), (req, res) => {

@@ -5,11 +5,11 @@ A Tanzania Fire and Rescue management prototype with role-based dashboards, stat
 ## Features
 - Login page branded for Zimamoto Mbeya Fire & Rescue.
 - Responsive split-panel login page; regional admins and system managers can publish or remove its image from System Settings.
-- Staff can set an availability status and message on their profile; only administrators and system managers can see the staff status directory.
+- Staff can set an availability status and message on their profile; HR, administrators, and system managers can review the regional personnel roster and staff availability.
 - Persistent SQLite storage for roles, stations, tasks, incidents, vehicles, equipment, shifts, notifications, and feedback.
 - Role-based dashboard content for Kamanda wa Mkoa, Kamanda wa Kituo, Mkuu wa Zamu, Askari Zimamoto, Fundi Magari, Afisa wa Vifaa.
 - Dashboard summary of stations, tasks, incidents, vehicles, equipment, shifts, and notifications.
-- Station CRUD operations and detailed station lists.
+- Station CRUD operations, detailed station lists, and multi-person staff assignments for each station.
 - Task management with assignment, deadlines, priorities, and statuses.
 - Incident logging and vehicle inventory.
 - Shift management and feedback submission.
@@ -17,6 +17,9 @@ A Tanzania Fire and Rescue management prototype with role-based dashboards, stat
 - Notice board, leave requests and approvals, training management, and personal performance goals.
 - Any signed-in user can submit a leave request; only the regional administrator and HR can list, review, or delete requests. Other roles see no leave records or pending-request totals.
 - Dedicated Human Resources, Accountant, and Fire Marshal roles with role-specific workflows for staff/leave/training, financial ledger verification, and fire-safety inspections.
+- The regional personnel view covers active staff accounts and personnel-only records for this single-region installation; HR and administrators can add individual records or import a validated CSV roster, filter the list, and print a register with an optional locally uploaded official logo.
+- HR can review the user directory and role catalog without administrator account-edit controls.
+- The login emblem is the Fire and Rescue Force PNG published in the [official Force website masthead](https://zimamoto.go.tz/sites/default/files/inline-images/frf_logo.png).
 - A System Manager role with full administrative access alongside the existing regional administrator role.
 - Per-user dark/light theme, language, and notification preferences.
 - Administrator JSON backups and additive import from the standalone dashboard export; account passwords are never imported.

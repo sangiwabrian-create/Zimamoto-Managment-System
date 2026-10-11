@@ -12,7 +12,7 @@
       <div class="login-layout">
         <section class="login-showcase" aria-label="Zimamoto Mbeya">
           <div class="login-brand">
-            <div class="coat-of-arms"></div>
+            <img class="coat-of-arms" src="fire-rescue-force-logo.png" alt="Jeshi la Zimamoto na Uokoaji Tanzania emblem">
             <div>
               <span>THE UNITED REPUBLIC OF TANZANIA</span>
               <h1>ZIMAMOTO MBEYA FIRE AND RESCUE</h1>
@@ -38,7 +38,10 @@
           <label for="checknumberInput">User name</label>
           <input id="checknumberInput" name="User name" type="text" autocomplete="username" required>
           <label for="passwordInput">Password</label>
-          <input id="passwordInput" name="password" type="password" autocomplete="current-password" required>
+          <div class="password-input-wrap">
+            <input id="passwordInput" name="password" type="password" autocomplete="current-password" required>
+            <button id="toggleLoginPassword" class="password-visibility-toggle" type="button" aria-label="Show password" aria-pressed="false">Show</button>
+          </div>
           <div class="login-actions">
             <label class="checkbox-label"><input id="keepLoggedIn" type="checkbox"> Keep me logged in</label>
             <a href="#" id="forgotPasswordLink" class="secondary-link">Forgot password?</a>
@@ -94,7 +97,7 @@
   <div id="appShell" class="app-shell hidden">
     <header class="topbar">
       <div class="brand">
-        <div class="logo"></div>
+        <img class="logo" src="fire-rescue-force-logo.png" alt="Jeshi la Zimamoto na Uokoaji Tanzania emblem">
         <div>
           <h1>Zimamoto Mbeya Management</h1>
           <p>Fire Station Operations & Incident Control</p>
@@ -111,6 +114,7 @@
           <span id="headerProfileStatus" class="header-profile-status"></span>
           <button id="signOutBtn" class="secondary">Sign Out</button>
         </div>
+        <button id="themeToggleBtn" class="secondary theme-toggle" type="button" aria-label="Switch to light mode">Light mode</button>
         <div class="language-select">
           <select id="languageSelect">
             <option value="sw">Kiswahili</option>
@@ -179,6 +183,7 @@
             <button class="nav-btn" data-view="shifts"><span class="nav-label">Shifts</span></button>
             <button class="nav-btn" data-view="notices"><span class="nav-label">Notices</span></button>
             <button class="nav-btn" data-view="users"><span class="nav-label">Users & Roles</span></button>
+            <button class="nav-btn" data-view="regionalPersonnel"><span class="nav-label">Regional Personnel</span></button>
             <button class="nav-btn" data-view="leave"><span class="nav-label">Leave</span></button>
             <button class="nav-btn" data-view="training"><span class="nav-label">Training</span></button>
             <button class="nav-btn" data-view="performance"><span class="nav-label">Performance</span></button>
@@ -210,6 +215,19 @@
             <button class="primary" id="newStationBtn">Add Station</button>
           </div>
           <div id="stationsList" class="table-container"></div>
+          <form id="stationOfficersForm" class="module-form hidden">
+            <input id="stationOfficersStationId" type="hidden">
+            <h3 id="stationOfficersTitle">Manage station officers</h3>
+            <p class="view-description">Select any number of active staff members. Each person can be assigned to one station; selecting someone assigned elsewhere moves them here, and unchecking removes them from this station.</p>
+            <label for="stationOfficerSearch">Search staff</label>
+            <input id="stationOfficerSearch" type="search" placeholder="Search by name or role">
+            <div id="stationOfficerChoices" class="staff-choice-list"></div>
+            <div class="form-actions">
+              <button id="cancelStationOfficersBtn" class="secondary" type="button">Cancel</button>
+              <button class="primary" type="submit">Save Officers</button>
+            </div>
+            <div id="stationOfficersMessage" class="notification" role="status"></div>
+          </form>
         </section>
 
         <section id="tasksView" class="view">
@@ -268,7 +286,7 @@
         </section>
 
         <section id="usersView" class="view">
-          <div class="view-header"><div><h2>User Administration</h2><p class="view-description">Manage staff accounts, roles, and station assignments.</p></div><button id="newUserBtn" class="primary hidden" type="button">Add User</button></div>
+          <div class="view-header"><div><h2>User Administration</h2><p class="view-description">Review staff accounts, roles, and station assignments.</p></div><button id="newUserBtn" class="primary hidden" type="button">Add User</button></div>
           <form id="userForm" class="module-form hidden">
             <input id="managedUserId" type="hidden">
             <h3 id="userFormTitle">Create Staff Account</h3>
@@ -286,6 +304,86 @@
             <div id="userFormMessage" class="notification"></div>
           </form>
           <div id="usersList" class="table-container"></div>
+          <h3 class="section-subheading">Available roles</h3>
+          <div id="rolesList" class="table-container"></div>
+        </section>
+
+        <section id="regionalPersonnelView" class="view">
+          <div class="view-header regional-personnel-header">
+            <div>
+              <h2>Regional Personnel</h2>
+              <p class="view-description">A clear, printable view of staff accounts and regional personnel records.</p>
+            </div>
+            <div class="regional-personnel-actions">
+              <button id="printRegionalPersonnelBtn" class="secondary" type="button">Print roster</button>
+              <label class="secondary upload-logo-button">Use official logo
+                <input id="regionalPersonnelLogoInput" type="file" accept="image/png,image/jpeg,image/webp">
+              </label>
+              <button id="uploadRegionalPersonnelCsvBtn" class="secondary" type="button">Import CSV</button>
+              <button id="downloadRegionalPersonnelTemplateBtn" class="secondary" type="button">CSV template</button>
+              <input id="regionalPersonnelCsvInput" type="file" accept=".csv,text/csv" hidden>
+              <button id="newRegionalPersonnelBtn" class="primary" type="button">Add Regional Personnel</button>
+            </div>
+          </div>
+          <section id="regionalPersonnelPrintHeader" class="regional-print-header">
+            <img id="regionalPersonnelPrintLogo" class="hidden" alt="Official fire and rescue logo">
+            <div><span>JESHI LA ZIMAMOTO NA UOKOAJI</span><h2>REGIONAL PERSONNEL REGISTER</h2><p>Mbeya Fire and Rescue</p></div>
+            <div class="regional-print-meta"><span>Printed</span><strong id="regionalPersonnelPrintedAt"></strong></div>
+          </section>
+          <section id="regionalPersonnelImportPanel" class="import-panel hidden">
+            <div class="view-header">
+              <div><h3>Import personnel from CSV</h3><p class="view-description">CSV columns: name, role, email, phone, station, availability, status_message.</p></div>
+              <button id="closeRegionalPersonnelImportBtn" class="secondary" type="button">Close</button>
+            </div>
+            <label class="csv-drop-zone" for="regionalPersonnelCsvInput">
+              <strong>Select a CSV file</strong>
+              <span>Choose a comma-separated file up to 2 MB. Review the preview before importing.</span>
+            </label>
+            <div id="regionalPersonnelImportMessage" class="notification" role="status"></div>
+            <div id="regionalPersonnelImportPreview"></div>
+            <div class="form-actions"><button id="confirmRegionalPersonnelImportBtn" class="primary hidden" type="button">Import personnel</button></div>
+          </section>
+          <form id="regionalPersonnelForm" class="module-form hidden">
+            <h3>Add Personnel Record</h3>
+            <p class="view-description">This adds someone to the regional roster only. It does not create a login account.</p>
+            <div class="module-form-grid">
+              <label>Full name<input id="regionalPersonnelName" maxlength="100" required></label>
+              <label>Role or position<input id="regionalPersonnelRole" maxlength="100" required></label>
+              <label>Email<input id="regionalPersonnelEmail" type="email" maxlength="200"></label>
+              <label>Phone<input id="regionalPersonnelPhone" maxlength="40"></label>
+              <label>Station<select id="regionalPersonnelStation"><option value="">Unassigned</option></select></label>
+              <label>Availability
+                <select id="regionalPersonnelNewAvailability">
+                  <option>Available</option>
+                  <option>On duty</option>
+                  <option>Off duty</option>
+                  <option>On leave</option>
+                </select>
+              </label>
+            </div>
+            <label>Status message<input id="regionalPersonnelStatusMessage" maxlength="120"></label>
+            <div class="form-actions">
+              <button id="cancelRegionalPersonnelBtn" class="secondary" type="button">Cancel</button>
+              <button class="primary" type="submit">Save Personnel</button>
+            </div>
+            <div id="regionalPersonnelFormMessage" class="notification" role="status"></div>
+          </form>
+          <div id="regionalPersonnelSummary" class="summary-grid"></div>
+          <div class="personnel-filters">
+            <label>Availability
+              <select id="regionalPersonnelAvailability">
+                <option value="all">All active staff</option>
+                <option value="Available">Available</option>
+                <option value="On duty">On duty</option>
+                <option value="Off duty">Off duty</option>
+                <option value="On leave">On leave</option>
+              </select>
+            </label>
+            <label>Search
+              <input id="regionalPersonnelSearch" type="search" placeholder="Search by name, username, role, or station">
+            </label>
+          </div>
+          <div id="regionalPersonnelList" class="table-container"></div>
         </section>
 
         <section id="leaveView" class="view">

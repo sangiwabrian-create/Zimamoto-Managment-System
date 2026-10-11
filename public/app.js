@@ -10,6 +10,8 @@ const loginError = document.getElementById('loginError');
 const registerError = document.getElementById('registerError');
 const forgotPasswordError = document.getElementById('forgotPasswordError');
 const languageSelect = document.getElementById('languageSelect');
+const themeToggleButton = document.getElementById('themeToggleBtn');
+const themeSelect = document.getElementById('settingsTheme');
 const currentUserLabel = document.getElementById('currentUserLabel');
 const signOutBtn = document.getElementById('signOutBtn');
 const editProfileBtn = document.getElementById('editProfileBtn');
@@ -52,6 +54,10 @@ const newEquipmentBtn = document.getElementById('newEquipmentBtn');
 const newShiftBtn = document.getElementById('newShiftBtn');
 const noticesList = document.getElementById('noticesList');
 const usersList = document.getElementById('usersList');
+const rolesList = document.getElementById('rolesList');
+const regionalPersonnelSummary = document.getElementById('regionalPersonnelSummary');
+const regionalPersonnelList = document.getElementById('regionalPersonnelList');
+const newRegionalPersonnelBtn = document.getElementById('newRegionalPersonnelBtn');
 const leaveList = document.getElementById('leaveList');
 const trainingList = document.getElementById('trainingList');
 const performanceList = document.getElementById('performanceList');
@@ -62,6 +68,10 @@ const newUserBtn = document.getElementById('newUserBtn');
 const newTrainingBtn = document.getElementById('newTrainingBtn');
 const views = Array.from(document.querySelectorAll('.view'));
 const navBtns = Array.from(document.querySelectorAll('.nav-btn'));
+let regionalPersonnelRecords = [];
+let stationOfficerCandidates = [];
+let pendingRegionalCsvRows = [];
+let regionalPersonnelStations = [];
 
 const translations = {
   en: {
@@ -194,7 +204,13 @@ function setTranslations() {
 function createSummaryCard(label, value) {
   const card = document.createElement('div');
   card.className = 'summary-card';
-  card.innerHTML = `<span>${label}</span><strong>${value}</strong>`;
+  const labelElement = document.createElement('span');
+  labelElement.className = 'summary-label';
+  labelElement.textContent = label;
+  const valueElement = document.createElement('strong');
+  valueElement.className = 'summary-value';
+  valueElement.textContent = String(value);
+  card.append(labelElement, valueElement);
   return card;
 }
 
@@ -435,14 +451,14 @@ profileForm.addEventListener('submit', async event => {
 });
 
 const viewPermissions = {
-  admin: ['dashboard', 'stations', 'tasks', 'incidents', 'vehicles', 'equipment', 'shifts', 'notices', 'users', 'leave', 'training', 'performance', 'finance', 'inspections', 'feedback', 'reports', 'settings'],
-  system_manager: ['dashboard', 'stations', 'tasks', 'incidents', 'vehicles', 'equipment', 'shifts', 'notices', 'users', 'leave', 'training', 'performance', 'finance', 'inspections', 'feedback', 'reports', 'settings'],
+  admin: ['dashboard', 'stations', 'tasks', 'incidents', 'vehicles', 'equipment', 'shifts', 'notices', 'users', 'regionalPersonnel', 'leave', 'training', 'performance', 'finance', 'inspections', 'feedback', 'reports', 'settings'],
+  system_manager: ['dashboard', 'stations', 'tasks', 'incidents', 'vehicles', 'equipment', 'shifts', 'notices', 'users', 'regionalPersonnel', 'leave', 'training', 'performance', 'finance', 'inspections', 'feedback', 'reports', 'settings'],
   station: ['dashboard', 'stations', 'tasks', 'incidents', 'vehicles', 'equipment', 'shifts', 'notices', 'leave', 'training', 'performance', 'feedback', 'reports', 'settings'],
   shift: ['dashboard', 'tasks', 'incidents', 'shifts', 'notices', 'leave', 'training', 'performance', 'feedback', 'reports', 'settings'],
   officer: ['dashboard', 'tasks', 'incidents', 'notices', 'leave', 'training', 'performance', 'feedback', 'reports', 'settings'],
   mechanic: ['dashboard', 'vehicles', 'equipment', 'notices', 'leave', 'training', 'performance', 'feedback', 'reports', 'settings'],
   equipment: ['dashboard', 'equipment', 'notices', 'leave', 'feedback', 'reports', 'settings'],
-  hr: ['dashboard', 'users', 'leave', 'training', 'performance', 'notices', 'feedback', 'reports', 'settings'],
+  hr: ['dashboard', 'users', 'regionalPersonnel', 'leave', 'training', 'performance', 'notices', 'feedback', 'reports', 'settings'],
   accountant: ['dashboard', 'finance', 'notices', 'reports', 'settings'],
   fire_marshal: ['dashboard', 'stations', 'incidents', 'equipment', 'inspections', 'notices', 'reports', 'settings'],
   viewer: ['dashboard', 'notices', 'reports', 'settings']
@@ -451,7 +467,7 @@ const viewPermissions = {
 const roleActivities = {
   admin: ['Manage every module, users, role assignments, system settings, and backups.'],
   system_manager: ['Full operational and user administration access, including audit and backup tools.'],
-  hr: ['Maintain the staff directory; review leave requests; coordinate training and performance records.'],
+  hr: ['Review regional staff availability and maintain the staff directory; review leave requests; coordinate training and performance records.'],
   accountant: ['Record income and expenses; maintain references; verify or reject pending financial entries; review reports.'],
   fire_marshal: ['Review station, incident, and equipment records; record fire-safety inspections, hazards, and follow-up actions.'],
   station: ['Manage station operations, assignments, incidents, shifts, notices, and local staff workflows.'],
@@ -473,6 +489,7 @@ function updateNavForRole(role) {
   }
   newNoticeBtn.classList.toggle('hidden', !(fullAccess || ['station'].includes(role)));
   newUserBtn.classList.toggle('hidden', !fullAccess);
+  newRegionalPersonnelBtn.classList.toggle('hidden', !(fullAccess || role === 'hr'));
   newTrainingBtn.classList.toggle('hidden', !(fullAccess || ['station', 'shift', 'hr'].includes(role)));
   document.getElementById('newStationBtn').classList.toggle('hidden', !(fullAccess || role === 'station'));
   document.getElementById('newTaskBtn').classList.toggle('hidden', !(fullAccess || ['station', 'shift'].includes(role)));
@@ -699,14 +716,14 @@ function actionButtonsHtml(id, type, label) {
 }
 
 function renderStations(data) {
-  const canManage = ['admin', 'station'].includes(currentUser?.roleCode);
+  const canManage = ['admin', 'system_manager', 'station'].includes(currentUser?.roleCode);
   const rows = data.map(station => [
-    station.name,
-    station.location,
-    station.commander,
-    station.officers.join(', '),
-    station.status,
-    `${actionButtonsHtml(station.id, 'view-station', 'View')}${canManage ? actionButtonsHtml(station.id, 'edit-station', 'Edit') + actionButtonsHtml(station.id, 'delete-station', 'Delete') : ''}`
+    escapeHtml(station.name),
+    escapeHtml(station.location),
+    escapeHtml(station.commander),
+    escapeHtml(station.officers.join(', ')),
+    escapeHtml(station.status),
+    `${actionButtonsHtml(station.id, 'view-station', 'View')}${canManage ? actionButtonsHtml(station.id, 'manage-station-officers', 'Manage officers') + actionButtonsHtml(station.id, 'edit-station', 'Edit') + actionButtonsHtml(station.id, 'delete-station', 'Delete') : ''}`
   ]);
   stationsList.innerHTML = '';
   const table = createTable(['Station Name', 'Location', 'Commander', 'Officers', 'Status', 'Actions'], rows);
@@ -716,13 +733,17 @@ function renderStations(data) {
     if (!station) return;
     showDetails('Station Details', `Name: ${station.name}\nLocation: ${station.location}\nCommander: ${station.commander}\nOfficers: ${station.officers.join(', ')}\nStatus: ${station.status}`);
   });
+  attachActionButtons(stationsList, '.action-btn[data-action="manage-station-officers"]', id => {
+    const station = data.find(item => item.id === Number(id));
+    if (station) showStationOfficerManager(station);
+  });
   attachActionButtons(stationsList, '.action-btn[data-action="edit-station"]', async (id) => {
     const station = data.find(item => item.id === Number(id));
     if (!station) return;
     const name = prompt('Station name:', station.name) || station.name;
     const location = prompt('Location:', station.location || '') || station.location || '';
     const commander = prompt('Station commander:', station.commander || '') || station.commander || '';
-    const officers = prompt('Officers (comma separated):', station.officers.join(', ')) || station.officers.join(', ');
+    const officers = prompt('Legacy officer names (comma separated):', station.legacyOfficers.join(', ')) ?? station.legacyOfficers.join(', ');
     const status = prompt('Status (active/maintenance):', station.status || 'active') || station.status || 'active';
     await putJson(`/api/stations/${id}`, {
       name,
@@ -742,6 +763,216 @@ function renderStations(data) {
     await loadAllData();
     alert('Station deleted successfully.');
   });
+}
+
+function renderStationOfficerChoices() {
+  const stationId = Number(document.getElementById('stationOfficersStationId').value);
+  const container = document.getElementById('stationOfficerChoices');
+  container.innerHTML = stationOfficerCandidates.map(user => {
+    const otherStation = user.stationName && Number(user.station_id) !== stationId
+      ? ` · Currently at ${escapeHtml(user.stationName)}`
+      : '';
+    return `
+      <label class="staff-choice-item">
+        <input type="checkbox" name="stationOfficerIds" value="${user.id}" ${Number(user.station_id) === stationId ? 'checked' : ''}>
+        <span>${escapeHtml(user.name)}<small>${escapeHtml(user.role)} · ${escapeHtml(user.availability || 'Off duty')}${otherStation}</small></span>
+      </label>
+    `;
+  }).join('') || '<p>No active staff accounts.</p>';
+  if (stationOfficerCandidates.length) {
+    container.insertAdjacentHTML('beforeend', '<p id="stationOfficerNoMatches" class="hidden">No matching active staff members.</p>');
+  }
+  filterStationOfficerChoices();
+}
+
+function filterStationOfficerChoices() {
+  const search = document.getElementById('stationOfficerSearch').value.trim().toLowerCase();
+  const items = Array.from(document.querySelectorAll('#stationOfficerChoices .staff-choice-item'));
+  let hasMatches = false;
+  items.forEach(item => {
+    const matches = item.textContent.toLowerCase().includes(search);
+    item.classList.toggle('hidden', !matches);
+    hasMatches ||= matches;
+  });
+  document.getElementById('stationOfficerNoMatches')?.classList.toggle('hidden', hasMatches);
+}
+
+async function showStationOfficerManager(station) {
+  const form = document.getElementById('stationOfficersForm');
+  const message = document.getElementById('stationOfficersMessage');
+  moduleNotice(message, '');
+  try {
+    stationOfficerCandidates = await getJson(`/api/stations/${station.id}/officer-candidates`);
+    document.getElementById('stationOfficersStationId').value = station.id;
+    document.getElementById('stationOfficersTitle').textContent = `Manage officers — ${station.name}`;
+    document.getElementById('stationOfficerSearch').value = '';
+    renderStationOfficerChoices();
+    form.classList.remove('hidden');
+    form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+function renderRegionalPersonnel() {
+  const availableCount = regionalPersonnelRecords.filter(user => user.availability === 'Available').length;
+  const onDutyCount = regionalPersonnelRecords.filter(user => user.availability === 'On duty').length;
+  const onLeaveCount = regionalPersonnelRecords.filter(user => user.availability === 'On leave').length;
+  regionalPersonnelSummary.replaceChildren(
+    createSummaryCard('Active staff', regionalPersonnelRecords.length),
+    createSummaryCard('Available now', availableCount),
+    createSummaryCard('On duty', onDutyCount),
+    createSummaryCard('On leave', onLeaveCount)
+  );
+
+  const selectedAvailability = document.getElementById('regionalPersonnelAvailability').value;
+  const search = document.getElementById('regionalPersonnelSearch').value.trim().toLowerCase();
+  const filtered = regionalPersonnelRecords.filter(user => {
+    const matchesAvailability = selectedAvailability === 'all' || user.availability === selectedAvailability;
+    const matchesSearch = `${user.name} ${user.checknumber} ${user.role} ${user.stationName || ''}`.toLowerCase().includes(search);
+    return matchesAvailability && matchesSearch;
+  });
+  const rows = filtered.map(user => {
+    const availability = user.availability || 'Off duty';
+    const availabilityClass = {
+      Available: 'available',
+      'On duty': 'on-duty',
+      'Off duty': 'off-duty',
+      'On leave': 'on-leave'
+    }[availability] || 'off-duty';
+    return [
+      escapeHtml(user.name),
+      escapeHtml(user.checknumber || 'No login'),
+      escapeHtml(user.role),
+      escapeHtml(user.stationName || 'Unassigned'),
+      `<span class="availability-pill ${availabilityClass}">${escapeHtml(availability)}</span>`,
+      escapeHtml(user.status_message || '—'),
+      escapeHtml(user.recordType)
+    ];
+  });
+  regionalPersonnelList.replaceChildren(createTable(['Name', 'Username', 'Role', 'Station', 'Availability', 'Status message', 'Record type'], rows));
+}
+
+async function loadRegionalPersonnel() {
+  [regionalPersonnelRecords, regionalPersonnelStations] = await Promise.all([
+    getJson('/api/regional-personnel'),
+    getJson('/api/stations')
+  ]);
+  renderRegionalPersonnel();
+}
+
+function parseRegionalCsv(text) {
+  const source = text.replace(/^\uFEFF/, '');
+  const rows = [];
+  let row = [];
+  let field = '';
+  let quoted = false;
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index];
+    if (character === '"' && quoted && source[index + 1] === '"') {
+      field += '"';
+      index += 1;
+    } else if (character === '"' && field.length === 0) {
+      quoted = !quoted;
+    } else if (character === ',' && !quoted) {
+      row.push(field.trim());
+      field = '';
+    } else if ((character === '\n' || character === '\r') && !quoted) {
+      row.push(field.trim());
+      field = '';
+      if (row.some(value => value !== '')) rows.push(row);
+      row = [];
+      if (character === '\r' && source[index + 1] === '\n') index += 1;
+    } else {
+      field += character;
+    }
+  }
+  if (quoted) throw new Error('The CSV contains an unclosed quote.');
+  row.push(field.trim());
+  if (row.some(value => value !== '')) rows.push(row);
+  if (rows.length < 2) throw new Error('The CSV must include a header row and at least one person.');
+  if (rows.length > 501) throw new Error('Import no more than 500 people in one CSV file.');
+
+  const normalizeHeader = value => value.trim().toLowerCase().replace(/[\s-]+/g, '_');
+  const headers = rows[0].map(normalizeHeader);
+  const findColumn = (...names) => names.map(name => headers.indexOf(name)).find(index => index !== -1);
+  const columns = {
+    name: findColumn('name', 'full_name', 'person_name'),
+    role_title: findColumn('role', 'role_title', 'position', 'job_title'),
+    email: findColumn('email', 'email_address'),
+    phone: findColumn('phone', 'telephone', 'mobile'),
+    station: findColumn('station', 'station_name'),
+    availability: findColumn('availability', 'status'),
+    status_message: findColumn('status_message', 'message')
+  };
+  if (columns.name === undefined || columns.role_title === undefined) {
+    throw new Error('CSV headers must include name and role (or role_title/position).');
+  }
+  return rows.slice(1).map(values => Object.fromEntries(
+    Object.entries(columns).filter(([, column]) => column !== undefined).map(([key, column]) => [key, values[column] || ''])
+  ));
+}
+
+function validateRegionalCsvRows(rows) {
+  const allowedAvailability = new Map(['Available', 'On duty', 'Off duty', 'On leave'].map(value => [value.toLowerCase(), value]));
+  const stationNames = new Set(regionalPersonnelStations.map(station => station.name.toLowerCase()));
+  const errors = [];
+  const normalized = rows.map((row, index) => {
+    const rowNumber = index + 2;
+    const availability = row.availability ? allowedAvailability.get(row.availability.toLowerCase()) : 'Available';
+    if (!row.name || row.name.length > 100) errors.push(`Row ${rowNumber}: add a name (up to 100 characters).`);
+    if (!row.role_title || row.role_title.length > 100) errors.push(`Row ${rowNumber}: add a role (up to 100 characters).`);
+    if (row.email.length > 200) errors.push(`Row ${rowNumber}: email must be 200 characters or fewer.`);
+    if (row.phone.length > 40) errors.push(`Row ${rowNumber}: phone must be 40 characters or fewer.`);
+    if (row.status_message.length > 120) errors.push(`Row ${rowNumber}: status message must be 120 characters or fewer.`);
+    if (row.availability && !availability) errors.push(`Row ${rowNumber}: availability must be Available, On duty, Off duty, or On leave.`);
+    if (row.station && !stationNames.has(row.station.toLowerCase()) && !regionalPersonnelStations.some(station => String(station.id) === row.station)) {
+      errors.push(`Row ${rowNumber}: station "${row.station}" was not found.`);
+    }
+    return { ...row, availability: availability || row.availability };
+  });
+  return { rows: normalized, errors };
+}
+
+function renderRegionalCsvPreview(rows, errors) {
+  const preview = document.getElementById('regionalPersonnelImportPreview');
+  const previewRows = rows.slice(0, 12).map(row => [
+    escapeHtml(row.name || '—'),
+    escapeHtml(row.role_title || '—'),
+    escapeHtml(row.email || '—'),
+    escapeHtml(row.station || 'Unassigned'),
+    escapeHtml(row.availability || 'Available')
+  ]);
+  preview.replaceChildren();
+  if (previewRows.length) {
+    preview.appendChild(createTable(['Name', 'Role', 'Email', 'Station', 'Availability'], previewRows));
+  }
+  if (rows.length > 12) {
+    const note = document.createElement('p');
+    note.textContent = `Previewing 12 of ${rows.length} records.`;
+    preview.appendChild(note);
+  }
+  if (errors.length) {
+    const list = document.createElement('ul');
+    list.className = 'csv-import-errors';
+    errors.forEach(error => {
+      const item = document.createElement('li');
+      item.textContent = error;
+      list.appendChild(item);
+    });
+    preview.appendChild(list);
+  }
+}
+
+function setRegionalPersonnelLogo(source) {
+  const logo = document.getElementById('regionalPersonnelPrintLogo');
+  if (source) {
+    logo.src = source;
+    logo.classList.remove('hidden');
+  } else {
+    logo.removeAttribute('src');
+    logo.classList.add('hidden');
+  }
 }
 
 function renderTasks(data) {
@@ -1060,14 +1291,19 @@ function renderNotices(data) {
 
 async function loadUsers() {
   const canManageUsers = ['admin', 'system_manager'].includes(currentUser?.roleCode);
+  const canSeeAvailability = ['admin', 'system_manager', 'hr'].includes(currentUser?.roleCode);
   const [listedUsers, roles, stations] = await Promise.all([getJson('/api/users'), getJson('/api/roles'), getJson('/api/stations')]);
-  const staffStatuses = canManageUsers ? await getJson('/api/staff-status') : [];
+  const staffStatuses = canSeeAvailability ? await getJson('/api/staff-status') : [];
   const statusById = new Map(staffStatuses.map(status => [status.id, status]));
   const users = listedUsers.map(user => ({ ...user, ...statusById.get(user.id) }));
   const roleSelect = document.getElementById('managedUserRole');
   const stationSelect = document.getElementById('managedUserStation');
   roleSelect.replaceChildren(...roles.map(role => new Option(role.label, role.code)));
   stationSelect.replaceChildren(new Option('No station', ''), ...stations.map(station => new Option(station.name, station.id)));
+  rolesList.replaceChildren(createTable(
+    ['Role', 'Role code'],
+    roles.map(role => [escapeHtml(role.label), escapeHtml(role.code)])
+  ));
   const rows = users.map(user => {
     const availability = user.availability || 'Off duty';
     const availabilityClass = {
@@ -1080,7 +1316,7 @@ async function loadUsers() {
       escapeHtml(user.name), escapeHtml(user.checknumber), escapeHtml(user.role), escapeHtml(user.station_id ? stations.find(item => Number(item.id) === Number(user.station_id))?.name || 'Unassigned' : 'Unassigned'),
       escapeHtml(user.email || '—'), user.active ? 'Active' : 'Disabled'
     ];
-    if (canManageUsers) {
+    if (canSeeAvailability) {
       row.push(`<span class="availability-pill ${availabilityClass}">${escapeHtml(availability)}</span>`, escapeHtml(user.status_message || '—'));
     }
     row.push(canManageUsers ? `${actionButtonsHtml(user.id, 'edit-user', 'Edit')}${actionButtonsHtml(user.id, 'toggle-user', user.active ? 'Disable' : 'Enable')}` : 'Staff directory');
@@ -1089,7 +1325,7 @@ async function loadUsers() {
   usersList.innerHTML = '';
   usersList.appendChild(createTable([
     'Name', 'Username', 'Role', 'Station', 'Email', 'Account status',
-    ...(canManageUsers ? ['Availability', 'Staff status'] : []), 'Actions'
+    ...(canSeeAvailability ? ['Availability', 'Staff status'] : []), 'Actions'
   ], rows));
   attachActionButtons(usersList, '.action-btn[data-action="edit-user"]', id => {
     const user = users.find(item => item.id === Number(id));
@@ -1113,25 +1349,23 @@ async function loadUsers() {
     if (!user || user.id === currentUser.id) return alert('You cannot disable your own account.');
     try {
       await putJson(`/api/users/${id}`, { name: user.name, role_code: user.roleCode, station_id: user.station_id, email: user.email, phone: user.phone, active: !user.active });
-      await loadUsers();
+      await loadAllData();
     } catch (error) { alert(error.message); }
   });
 }
 
 function renderLeave(data) {
-  const canReview = ['admin', 'hr'].includes(currentUser?.roleCode);
-  if (!canReview) {
-    leaveList.innerHTML = '<p class="leave-privacy-note">Submit a request using the form above. Request records are visible only to the regional administrator and HR.</p>';
-    return;
-  }
+  const canReview = ['admin', 'system_manager', 'station', 'shift', 'hr'].includes(currentUser?.roleCode);
   const rows = data.map(item => [
     escapeHtml(item.employee || currentUser.name), escapeHtml(item.leave_type), `${escapeHtml(item.start_date)} – ${escapeHtml(item.end_date)}`,
     escapeHtml(item.reason), `<span class="status-pill ${escapeHtml(item.status)}">${escapeHtml(item.status)}</span>`,
     escapeHtml(item.review_note || '—'),
-    `${canReview && item.status === 'pending' ? `${actionButtonsHtml(item.id, 'approve-leave', 'Approve')}${actionButtonsHtml(item.id, 'reject-leave', 'Reject')}` : ''}${canReview ? actionButtonsHtml(item.id, 'delete-leave', 'Delete') : ''}`
+    escapeHtml(item.reviewer || '—'),
+    item.reviewed_at ? escapeHtml(new Date(item.reviewed_at).toLocaleString()) : '—',
+    `${canReview && item.status === 'pending' ? `${actionButtonsHtml(item.id, 'approve-leave', 'Approve')}${actionButtonsHtml(item.id, 'reject-leave', 'Reject')}` : ''}${canReview || item.status === 'pending' ? actionButtonsHtml(item.id, 'delete-leave', 'Delete') : ''}`
   ]);
   leaveList.innerHTML = '';
-  leaveList.appendChild(createTable(['Employee', 'Leave Type', 'Dates', 'Reason', 'Status', 'Review Note', 'Actions'], rows));
+  leaveList.appendChild(createTable(['Employee', 'Leave Type', 'Dates', 'Reason', 'Status', 'Review Note', 'Reviewed By', 'Reviewed At', 'Actions'], rows));
   for (const [action, status] of [['approve-leave', 'approved'], ['reject-leave', 'rejected']]) {
     attachActionButtons(leaveList, `.action-btn[data-action="${action}"]`, async id => {
       try { await fetchJson(`/api/leave/${id}/review`, 'PATCH', { status, review_note: '' }); await loadViewData('leave'); }
@@ -1289,24 +1523,22 @@ async function loadViewData(viewName) {
   try {
     if (viewName === 'notices') renderNotices(await getJson('/api/notices'));
     if (viewName === 'users') await loadUsers();
-    if (viewName === 'leave') {
-      if (['admin', 'hr'].includes(currentUser?.roleCode)) renderLeave(await getJson('/api/leave'));
-      else renderLeave([]);
-    }
+    if (viewName === 'regionalPersonnel') await loadRegionalPersonnel();
+    if (viewName === 'leave') renderLeave(await getJson('/api/leave'));
     if (viewName === 'training') renderTraining(await getJson('/api/training'));
     if (viewName === 'performance') renderPerformance(await getJson('/api/performance'));
     if (viewName === 'finance') renderFinance(await getJson('/api/finance'));
     if (viewName === 'inspections') renderInspections(await getJson('/api/fire-inspections'));
     if (viewName === 'settings') await loadSettings();
   } catch (error) {
-    const containers = { notices: noticesList, users: usersList, leave: leaveList, training: trainingList, performance: performanceList };
+    const containers = { notices: noticesList, users: usersList, regionalPersonnel: regionalPersonnelList, leave: leaveList, training: trainingList, performance: performanceList };
     if (containers[viewName]) containers[viewName].innerHTML = `<p class="notification error">${escapeHtml(error.message)}</p>`;
   }
 }
 
 async function loadSettings() {
   const settings = await getJson('/api/settings');
-  document.getElementById('settingsTheme').value = settings.theme;
+  themeSelect.value = settings.theme;
   document.getElementById('settingsLanguage').value = settings.language;
   document.getElementById('settingsEmailNotifications').checked = Boolean(settings.email_notifications);
   document.getElementById('settingsPushNotifications').checked = Boolean(settings.push_notifications);
@@ -1317,7 +1549,12 @@ async function loadSettings() {
 }
 
 function applyTheme(theme) {
-  document.body.classList.toggle('light-theme', theme === 'light');
+  const isLight = theme === 'light';
+  document.body.classList.toggle('light-theme', isLight);
+  themeToggleButton.textContent = isLight ? 'Dark mode' : 'Light mode';
+  themeToggleButton.setAttribute('aria-label', `Switch to ${isLight ? 'dark' : 'light'} mode`);
+  themeToggleButton.setAttribute('aria-pressed', String(isLight));
+  themeSelect.value = isLight ? 'light' : 'dark';
 }
 
 async function fetchJson(url, method, payload) {
@@ -1381,6 +1618,157 @@ document.getElementById('newVehicleBtn').addEventListener('click', createVehicle
 if (newEquipmentBtn) newEquipmentBtn.addEventListener('click', createEquipment);
 if (newShiftBtn) newShiftBtn.addEventListener('click', createShift);
 
+document.getElementById('uploadRegionalPersonnelCsvBtn').addEventListener('click', () => {
+  document.getElementById('regionalPersonnelImportPanel').classList.remove('hidden');
+  document.getElementById('regionalPersonnelCsvInput').click();
+});
+document.getElementById('closeRegionalPersonnelImportBtn').addEventListener('click', () => {
+  document.getElementById('regionalPersonnelImportPanel').classList.add('hidden');
+});
+document.getElementById('regionalPersonnelCsvInput').addEventListener('change', async event => {
+  const file = event.currentTarget.files?.[0];
+  if (!file) return;
+  const message = document.getElementById('regionalPersonnelImportMessage');
+  const preview = document.getElementById('regionalPersonnelImportPreview');
+  const importButton = document.getElementById('confirmRegionalPersonnelImportBtn');
+  importButton.classList.add('hidden');
+  pendingRegionalCsvRows = [];
+  preview.replaceChildren();
+  try {
+    if (!file.name.toLowerCase().endsWith('.csv') || file.size > 2 * 1024 * 1024) {
+      throw new Error('Choose a CSV file no larger than 2 MB.');
+    }
+    if (!regionalPersonnelStations.length) regionalPersonnelStations = await getJson('/api/stations');
+    const rows = parseRegionalCsv(await file.text());
+    const result = validateRegionalCsvRows(rows);
+    renderRegionalCsvPreview(result.rows, result.errors);
+    if (result.errors.length) {
+      moduleNotice(message, `Found ${result.errors.length} issue(s). Correct the CSV and select it again.`);
+      return;
+    }
+    pendingRegionalCsvRows = result.rows;
+    moduleNotice(message, `${result.rows.length} people ready to import. Review the preview, then confirm.`, 'success');
+    importButton.classList.remove('hidden');
+  } catch (error) {
+    moduleNotice(message, error.message);
+  }
+});
+document.getElementById('confirmRegionalPersonnelImportBtn').addEventListener('click', async () => {
+  const message = document.getElementById('regionalPersonnelImportMessage');
+  if (!pendingRegionalCsvRows.length) {
+    moduleNotice(message, 'Select and review a valid CSV before importing.');
+    return;
+  }
+  const button = document.getElementById('confirmRegionalPersonnelImportBtn');
+  button.disabled = true;
+  try {
+    const result = await postJson('/api/regional-personnel/import', { personnel: pendingRegionalCsvRows });
+    pendingRegionalCsvRows = [];
+    document.getElementById('regionalPersonnelCsvInput').value = '';
+    button.classList.add('hidden');
+    document.getElementById('regionalPersonnelImportPreview').replaceChildren();
+    moduleNotice(message, result.message, 'success');
+    await loadRegionalPersonnel();
+  } catch (error) {
+    moduleNotice(message, error.message);
+  } finally {
+    button.disabled = false;
+  }
+});
+document.getElementById('downloadRegionalPersonnelTemplateBtn').addEventListener('click', () => {
+  const template = 'name,role,email,phone,station,availability,status_message\n"Asha Mwakalinga","Rescue Specialist","asha@example.com","0712345678","Mbeya Central","Available","Ready for duty"\n';
+  const url = URL.createObjectURL(new Blob([template], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'regional-personnel-template.csv';
+  link.click();
+  URL.revokeObjectURL(url);
+});
+document.getElementById('regionalPersonnelLogoInput').addEventListener('change', async event => {
+  const file = event.currentTarget.files?.[0];
+  if (!file) return;
+  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 1200 * 1024) {
+    alert('Choose the official logo as a PNG, JPEG, or WebP image under 1.2 MB.');
+    event.currentTarget.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.addEventListener('load', () => {
+    if (typeof reader.result !== 'string') return;
+    localStorage.setItem('zimamotoRegionalOfficialLogo', reader.result);
+    setRegionalPersonnelLogo(reader.result);
+  });
+  reader.addEventListener('error', () => alert('The logo file could not be read.'));
+  reader.readAsDataURL(file);
+});
+document.getElementById('printRegionalPersonnelBtn').addEventListener('click', () => {
+  document.getElementById('regionalPersonnelPrintedAt').textContent = new Date().toLocaleString();
+  window.print();
+});
+setRegionalPersonnelLogo(localStorage.getItem('zimamotoRegionalOfficialLogo'));
+
+newRegionalPersonnelBtn.addEventListener('click', async () => {
+  const form = document.getElementById('regionalPersonnelForm');
+  try {
+    const stations = await getJson('/api/stations');
+    const stationSelect = document.getElementById('regionalPersonnelStation');
+    stationSelect.replaceChildren(new Option('Unassigned', ''), ...stations.map(station => new Option(station.name, station.id)));
+    form.reset();
+    document.getElementById('regionalPersonnelNewAvailability').value = 'Available';
+    moduleNotice(document.getElementById('regionalPersonnelFormMessage'), '');
+    form.classList.remove('hidden');
+    form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } catch (error) {
+    alert(error.message);
+  }
+});
+
+document.getElementById('cancelRegionalPersonnelBtn').addEventListener('click', () => {
+  document.getElementById('regionalPersonnelForm').classList.add('hidden');
+});
+
+document.getElementById('regionalPersonnelForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  const payload = {
+    name: document.getElementById('regionalPersonnelName').value.trim(),
+    role_title: document.getElementById('regionalPersonnelRole').value.trim(),
+    email: document.getElementById('regionalPersonnelEmail').value.trim(),
+    phone: document.getElementById('regionalPersonnelPhone').value.trim(),
+    station_id: document.getElementById('regionalPersonnelStation').value || null,
+    availability: document.getElementById('regionalPersonnelNewAvailability').value,
+    status_message: document.getElementById('regionalPersonnelStatusMessage').value.trim()
+  };
+  try {
+    await postJson('/api/regional-personnel', payload);
+    document.getElementById('regionalPersonnelForm').reset();
+    document.getElementById('regionalPersonnelNewAvailability').value = 'Available';
+    await loadRegionalPersonnel();
+    moduleNotice(document.getElementById('regionalPersonnelFormMessage'), 'Personnel added to the regional roster.', 'success');
+  } catch (error) {
+    moduleNotice(document.getElementById('regionalPersonnelFormMessage'), error.message);
+  }
+});
+
+document.getElementById('stationOfficerSearch').addEventListener('input', filterStationOfficerChoices);
+document.getElementById('cancelStationOfficersBtn').addEventListener('click', () => {
+  document.getElementById('stationOfficersForm').classList.add('hidden');
+});
+document.getElementById('stationOfficersForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  const stationId = document.getElementById('stationOfficersStationId').value;
+  const officerIds = Array.from(document.querySelectorAll('#stationOfficerChoices input[name="stationOfficerIds"]:checked'), input => Number(input.value));
+  try {
+    await putJson(`/api/stations/${stationId}/officers`, { officer_ids: officerIds });
+    document.getElementById('stationOfficersForm').classList.add('hidden');
+    await loadAllData();
+    alert('Station officers updated.');
+  } catch (error) {
+    moduleNotice(document.getElementById('stationOfficersMessage'), error.message);
+  }
+});
+document.getElementById('regionalPersonnelAvailability').addEventListener('change', renderRegionalPersonnel);
+document.getElementById('regionalPersonnelSearch').addEventListener('input', renderRegionalPersonnel);
+
 newNoticeBtn.addEventListener('click', () => showNoticeEditor());
 document.getElementById('cancelNoticeEditBtn').addEventListener('click', () => document.getElementById('noticeForm').classList.add('hidden'));
 document.getElementById('noticeForm').addEventListener('submit', async event => {
@@ -1433,7 +1821,7 @@ document.getElementById('userForm').addEventListener('submit', async event => {
     await fetchJson(id ? `/api/users/${id}` : '/api/users', id ? 'PUT' : 'POST', payload);
     moduleNotice(document.getElementById('userFormMessage'), 'User saved.', 'success');
     document.getElementById('userForm').classList.add('hidden');
-    await loadUsers();
+    await Promise.all([loadUsers(), loadAllData()]);
   } catch (error) { moduleNotice(document.getElementById('userFormMessage'), error.message); }
 });
 
@@ -1449,7 +1837,7 @@ document.getElementById('leaveForm').addEventListener('submit', async event => {
     });
     form.reset();
     moduleNotice(document.getElementById('leaveFormMessage'), 'Leave request submitted.', 'success');
-    if (['admin', 'hr'].includes(currentUser?.roleCode)) await loadViewData('leave');
+    await loadViewData('leave');
   } catch (error) { moduleNotice(document.getElementById('leaveFormMessage'), error.message); }
 });
 
@@ -1627,6 +2015,32 @@ document.getElementById('settingsForm').addEventListener('submit', async event =
     setTranslations();
     moduleNotice(document.getElementById('settingsFormMessage'), 'Preferences saved.', 'success');
   } catch (error) { moduleNotice(document.getElementById('settingsFormMessage'), error.message); }
+});
+
+document.getElementById('settingsTheme').addEventListener('change', event => {
+  applyTheme(event.currentTarget.value);
+});
+
+themeToggleButton.addEventListener('click', async () => {
+  const previousTheme = document.body.classList.contains('light-theme') ? 'light' : 'dark';
+  const nextTheme = previousTheme === 'light' ? 'dark' : 'light';
+  applyTheme(nextTheme);
+  try {
+    await putJson('/api/settings', { theme: nextTheme });
+    moduleNotice(document.getElementById('settingsFormMessage'), 'Appearance updated.', 'success');
+  } catch (error) {
+    applyTheme(previousTheme);
+    moduleNotice(document.getElementById('settingsFormMessage'), error.message);
+  }
+});
+
+document.getElementById('toggleLoginPassword').addEventListener('click', event => {
+  const button = event.currentTarget;
+  const isVisible = passwordInput.type === 'text';
+  passwordInput.type = isVisible ? 'password' : 'text';
+  button.textContent = isVisible ? 'Show' : 'Hide';
+  button.setAttribute('aria-label', `${isVisible ? 'Show' : 'Hide'} password`);
+  button.setAttribute('aria-pressed', String(!isVisible));
 });
 
 document.getElementById('exportBackupBtn').addEventListener('click', async () => {
