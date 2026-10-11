@@ -453,10 +453,10 @@ function passwordMatches(password, storedPassword) {
 function bootstrapProductionAdmin() {
   if (process.env.NODE_ENV !== 'production' ||
     db.prepare("SELECT id FROM users WHERE role_code = 'admin' LIMIT 1").get()) return;
-  const checknumber = process.env.INITIAL_ADMIN_USERNAME?.trim();
-  const password = process.env.INITIAL_ADMIN_PASSWORD;
+  const checknumber = (process.env.ADMIN_CHECKNUMBER || process.env.INITIAL_ADMIN_USERNAME)?.trim();
+  const password = process.env.ADMIN_PASSWORD || process.env.INITIAL_ADMIN_PASSWORD;
   if (!checknumber || !password || checknumber.length > 50 || password.length < 14) {
-    throw new Error('Production requires INITIAL_ADMIN_USERNAME and an INITIAL_ADMIN_PASSWORD of at least 14 characters before starting.');
+    throw new Error('ADMIN_CHECKNUMBER and ADMIN_PASSWORD must be set before the first start; the password must be at least 14 characters.');
   }
   if (db.prepare('SELECT id FROM users WHERE checknumber = ?').get(checknumber)) {
     throw new Error('INITIAL_ADMIN_USERNAME already belongs to a non-administrator account.');
@@ -465,7 +465,7 @@ function bootstrapProductionAdmin() {
     VALUES (?, ?, ?, 'admin', NULL)`).run(
     checknumber,
     hashPassword(password),
-    process.env.INITIAL_ADMIN_NAME?.trim() || 'Regional Administrator'
+    (process.env.ADMIN_NAME || process.env.INITIAL_ADMIN_NAME)?.trim() || 'Regional Administrator'
   );
 }
 

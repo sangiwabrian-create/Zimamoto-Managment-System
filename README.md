@@ -58,7 +58,7 @@ The same setup works on a local network only. Do not forward port 3000 to the pu
 ## Deploy on Render
 1. Merge the deployment branch into the repository's default branch, then create a new Blueprint in Render from this GitHub repository and select `render.yaml`.
 2. Render creates the `zimamoto-mbeya` web service in Singapore and attaches a persistent disk at `/var/data` for SQLite. The Starter service and persistent disk are paid Render resources.
-3. Set the prompted `INITIAL_ADMIN_USERNAME`, `INITIAL_ADMIN_PASSWORD`, and `INITIAL_ADMIN_NAME` values in Render. Use a unique username and a strong password of at least 14 characters. The first production startup creates only that administrator; it does not add demo users or sample operational data.
+3. Set the prompted `ADMIN_CHECKNUMBER`, `ADMIN_PASSWORD`, and `ADMIN_NAME` values in Render. Use a unique username and a strong password of at least 14 characters. These variable names also work with the Render startup check shown in older deployments. The first production startup creates only that administrator; it does not add demo users or sample operational data.
 4. The expected public address is `https://zimamoto-mbeya.onrender.com` if that hostname is available. Render confirms the final hostname after service creation.
 
 Production stores passwords using scrypt, disables public account registration and unconfigured password recovery, and requires administrator credentials at first startup. Administrators can reset an account password through the protected `PUT /api/users/:id/password` endpoint. Existing plaintext passwords are upgraded to scrypt when their owners next sign in.
