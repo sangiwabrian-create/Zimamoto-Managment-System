@@ -477,7 +477,7 @@ app.post('/api/auth/forgot-password', (req, res) => {
   const token = crypto.randomBytes(24).toString('hex');
   const expiresAt = new Date(Date.now() + 3600000).toISOString();
   db.prepare('INSERT INTO password_resets (user_id, token, expires_at) VALUES (?, ?, ?)').run(user.id, token, expiresAt);
-  res.json({ 
+  res.json({
     message: 'Password reset token created', 
     token: token,
     checknumber: user.checknumber,
@@ -655,12 +655,14 @@ app.delete('/api/notices/:id', requireRoles('admin', 'station'), (req, res) => {
 });
 
 app.get('/api/leave', (req, res) => {
-  const canReview = hasFullAccess(req.user.roleCode) || ['station', 'shift', 'hr'].includes(req.user.roleCode);
+  if (!['admin', 'hr'].includes(req.user.roleCode)) {
+    return res.status(403).json({ message: 'Only the regional administrator and HR can view leave requests' });
+  }
   const query = `SELECT l.*, u.name AS employee, u.checknumber, reviewer.name AS reviewer
     FROM leave_requests l JOIN users u ON u.id = l.user_id
     LEFT JOIN users reviewer ON reviewer.id = l.reviewed_by
-    ${canReview ? '' : 'WHERE l.user_id = ?'} ORDER BY l.created_at DESC`;
-  res.json(canReview ? db.prepare(query).all() : db.prepare(query).all(req.user.id));
+    ORDER BY l.created_at DESC`;
+  res.json(db.prepare(query).all());
 });
 
 app.post('/api/leave', (req, res) => {
@@ -671,10 +673,15 @@ app.post('/api/leave', (req, res) => {
   const result = db.prepare(`INSERT INTO leave_requests (user_id, leave_type, start_date, end_date, reason, created_at)
     VALUES (?, ?, ?, ?, ?, ?)`).run(req.user.id, leave_type.trim(), start_date, end_date, reason.trim(), new Date().toISOString());
   recordAudit(req, 'create', 'leave_request', result.lastInsertRowid);
-  res.status(201).json(db.prepare('SELECT * FROM leave_requests WHERE id = ?').get(result.lastInsertRowid));
+  res.status(201).json({ message: 'Leave request submitted' });
 });
 
-app.patch('/api/leave/:id/review', requireRoles('admin', 'station', 'shift', 'hr'), (req, res) => {
+app.patch('/api/leave/:id/review', (req, res, next) => {
+  if (!['admin', 'hr'].includes(req.user.roleCode)) {
+    return res.status(403).json({ message: 'Only the regional administrator and HR can review leave requests' });
+  }
+  next();
+}, (req, res) => {
   const id = Number(req.params.id);
   const { status, review_note = '' } = req.body;
   if (!['approved', 'rejected'].includes(status)) return res.status(400).json({ message: 'Review status must be approved or rejected' });
@@ -688,11 +695,12 @@ app.patch('/api/leave/:id/review', requireRoles('admin', 'station', 'shift', 'hr
 });
 
 app.delete('/api/leave/:id', (req, res) => {
+  if (!['admin', 'hr'].includes(req.user.roleCode)) {
+    return res.status(403).json({ message: 'Only the regional administrator and HR can manage leave requests' });
+  }
   const id = Number(req.params.id);
   const request = db.prepare('SELECT * FROM leave_requests WHERE id = ?').get(id);
   if (!request) return res.status(404).json({ message: 'Leave request not found' });
-  const mayDelete = request.user_id === req.user.id && request.status === 'pending' || hasFullAccess(req.user.roleCode) || req.user.roleCode === 'hr';
-  if (!mayDelete) return res.status(403).json({ message: 'Only the owner of a pending request or an administrator can remove it' });
   db.prepare('DELETE FROM leave_requests WHERE id = ?').run(id);
   recordAudit(req, 'delete', 'leave_request', id);
   res.json(request);
@@ -808,6 +816,26 @@ app.put('/api/settings', (req, res) => {
     email_notifications = excluded.email_notifications, push_notifications = excluded.push_notifications`)
     .run(req.user.id, theme, language, emailNotifications ? 1 : 0, pushNotifications ? 1 : 0);
   res.json(db.prepare('SELECT theme, language, email_notifications, push_notifications FROM user_settings WHERE user_id = ?').get(req.user.id));
+});
+
+app.put('/api/system/login-artwork', requireRoles('admin', 'system_manager'), (req, res) => {
+  const image = req.body?.image;
+  if (typeof image !== 'string' || !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(image)) {
+    return res.status(400).json({ message: 'Choose a valid PNG, JPEG, or WebP image' });
+  }
+  if (image.length > 2800000) return res.status(413).json({ message: 'Login picture must be 2 MB or smaller' });
+  db.prepare(`INSERT INTO system_assets (asset_key, asset_value, updated_by, updated_at)
+    VALUES ('login_artwork', ?, ?, ?)
+    ON CONFLICT(asset_key) DO UPDATE SET asset_value = excluded.asset_value, updated_by = excluded.updated_by, updated_at = excluded.updated_at`)
+    .run(image, req.user.id, new Date().toISOString());
+  recordAudit(req, 'update', 'login_artwork', null);
+  res.json({ image });
+});
+
+app.delete('/api/system/login-artwork', requireRoles('admin', 'system_manager'), (req, res) => {
+  db.prepare("DELETE FROM system_assets WHERE asset_key = 'login_artwork'").run();
+  recordAudit(req, 'delete', 'login_artwork', null);
+  res.json({ image: null });
 });
 
 app.get('/api/finance', requireRoles('accountant'), (req, res) => {
@@ -939,12 +967,12 @@ app.get('/api/backup/export', requireRoles('admin'), (req, res) => {
     shifts: db.prepare('SELECT * FROM shifts').all(),
     notifications: db.prepare('SELECT * FROM notifications').all(),
     feedback: db.prepare('SELECT * FROM feedback').all(),
-    leave: db.prepare('SELECT * FROM leave_requests').all(),
     training: db.prepare('SELECT * FROM training_records').all(),
     performance: db.prepare('SELECT * FROM performance_goals').all(),
     settings: db.prepare('SELECT theme, language, email_notifications, push_notifications FROM user_settings WHERE user_id = ?').get(req.user.id),
     users: db.prepare('SELECT id, checknumber, name, role_code, station_id, email, phone, avatar, availability, status_message, active FROM users').all()
   };
+  if (['admin', 'hr'].includes(req.user.roleCode)) data.leave = db.prepare('SELECT * FROM leave_requests').all();
   recordAudit(req, 'export', 'backup', null);
   res.json({ format: 'zimamoto-backup', version: 1, exportedAt: new Date().toISOString(), data });
 });
@@ -1111,7 +1139,7 @@ app.get('/api/dashboard', (req, res) => {
   const shifts = db.prepare('SELECT s.*, st.name AS stationName FROM shifts s LEFT JOIN stations st ON s.station_id = st.id ORDER BY date ASC').all();
   const feedback = db.prepare('SELECT * FROM feedback ORDER BY created_at DESC').all();
 
-  res.json({
+  const dashboard = {
     userCount: totalUsers,
     stationCount: stationsCount,
     taskCount: tasksCount,
@@ -1124,7 +1152,6 @@ app.get('/api/dashboard', (req, res) => {
     brokenEquipment,
     incidentReports,
     notificationCount,
-    pendingLeave,
     trainingUpcoming,
     performanceGoals,
     fireInspections,
@@ -1137,7 +1164,9 @@ app.get('/api/dashboard', (req, res) => {
     notifications,
     shifts,
     feedback
-  });
+  };
+  if (['admin', 'hr'].includes(req.user.roleCode)) dashboard.pendingLeave = pendingLeave;
+  res.json(dashboard);
 });
 
 app.get('/api/stations', (req, res) => {

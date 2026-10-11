@@ -22,6 +22,7 @@ const headerProfileAvatar = document.getElementById('headerProfileAvatar');
 const headerProfileInitials = document.getElementById('headerProfileInitials');
 const headerProfileStatus = document.getElementById('headerProfileStatus');
 let profileAvatarData = null;
+let loginArtworkData = null;
 const menuTitle = document.getElementById('menuTitle');
 const sidebarToggle = document.getElementById('sidebarToggle');
 const dashboardTitle = document.getElementById('dashboardTitle');
@@ -236,6 +237,31 @@ async function loginUser(credentials) {
     throw new Error(error.message || 'Login failed');
   }
   return response.json();
+}
+
+function renderLoginArtwork(imageData) {
+  const image = document.getElementById('loginArtwork');
+  const placeholder = document.getElementById('loginArtworkPlaceholder');
+  image.classList.toggle('hidden', !imageData);
+  placeholder.classList.toggle('hidden', Boolean(imageData));
+  if (imageData) image.src = imageData;
+  else image.removeAttribute('src');
+  const preview = document.getElementById('loginArtworkSettingsPreview');
+  const previewPlaceholder = document.getElementById('loginArtworkSettingsPlaceholder');
+  if (preview && previewPlaceholder) {
+    preview.classList.toggle('hidden', !imageData);
+    previewPlaceholder.classList.toggle('hidden', Boolean(imageData));
+    if (imageData) preview.src = imageData;
+    else preview.removeAttribute('src');
+  }
+}
+
+async function loadLoginArtwork() {
+  const response = await fetch('/api/public/login-artwork');
+  if (!response.ok) throw new Error('Unable to load login page artwork');
+  const payload = await response.json();
+  loginArtworkData = payload.image;
+  renderLoginArtwork(loginArtworkData);
 }
 
 async function fetchDashboardData() {
@@ -1034,18 +1060,37 @@ function renderNotices(data) {
 
 async function loadUsers() {
   const canManageUsers = ['admin', 'system_manager'].includes(currentUser?.roleCode);
-  const [users, roles, stations] = await Promise.all([getJson('/api/users'), getJson('/api/roles'), getJson('/api/stations')]);
+  const [listedUsers, roles, stations] = await Promise.all([getJson('/api/users'), getJson('/api/roles'), getJson('/api/stations')]);
+  const staffStatuses = canManageUsers ? await getJson('/api/staff-status') : [];
+  const statusById = new Map(staffStatuses.map(status => [status.id, status]));
+  const users = listedUsers.map(user => ({ ...user, ...statusById.get(user.id) }));
   const roleSelect = document.getElementById('managedUserRole');
   const stationSelect = document.getElementById('managedUserStation');
   roleSelect.replaceChildren(...roles.map(role => new Option(role.label, role.code)));
   stationSelect.replaceChildren(new Option('No station', ''), ...stations.map(station => new Option(station.name, station.id)));
-  const rows = users.map(user => [
-    escapeHtml(user.name), escapeHtml(user.checknumber), escapeHtml(user.role), escapeHtml(user.station_id ? stations.find(item => Number(item.id) === Number(user.station_id))?.name || 'Unassigned' : 'Unassigned'),
-    escapeHtml(user.email || '—'), user.active ? 'Active' : 'Disabled',
-    canManageUsers ? `${actionButtonsHtml(user.id, 'edit-user', 'Edit')}${actionButtonsHtml(user.id, 'toggle-user', user.active ? 'Disable' : 'Enable')}` : 'Staff directory'
-  ]);
+  const rows = users.map(user => {
+    const availability = user.availability || 'Off duty';
+    const availabilityClass = {
+      Available: 'available',
+      'On duty': 'on-duty',
+      'Off duty': 'off-duty',
+      'On leave': 'on-leave'
+    }[availability] || 'off-duty';
+    const row = [
+      escapeHtml(user.name), escapeHtml(user.checknumber), escapeHtml(user.role), escapeHtml(user.station_id ? stations.find(item => Number(item.id) === Number(user.station_id))?.name || 'Unassigned' : 'Unassigned'),
+      escapeHtml(user.email || '—'), user.active ? 'Active' : 'Disabled'
+    ];
+    if (canManageUsers) {
+      row.push(`<span class="availability-pill ${availabilityClass}">${escapeHtml(availability)}</span>`, escapeHtml(user.status_message || '—'));
+    }
+    row.push(canManageUsers ? `${actionButtonsHtml(user.id, 'edit-user', 'Edit')}${actionButtonsHtml(user.id, 'toggle-user', user.active ? 'Disable' : 'Enable')}` : 'Staff directory');
+    return row;
+  });
   usersList.innerHTML = '';
-  usersList.appendChild(createTable(['Name', 'Username', 'Role', 'Station', 'Email', 'Status', 'Actions'], rows));
+  usersList.appendChild(createTable([
+    'Name', 'Username', 'Role', 'Station', 'Email', 'Account status',
+    ...(canManageUsers ? ['Availability', 'Staff status'] : []), 'Actions'
+  ], rows));
   attachActionButtons(usersList, '.action-btn[data-action="edit-user"]', id => {
     const user = users.find(item => item.id === Number(id));
     if (!user) return;
@@ -1074,12 +1119,16 @@ async function loadUsers() {
 }
 
 function renderLeave(data) {
-  const canReview = ['admin', 'system_manager', 'station', 'shift', 'hr'].includes(currentUser?.roleCode);
+  const canReview = ['admin', 'hr'].includes(currentUser?.roleCode);
+  if (!canReview) {
+    leaveList.innerHTML = '<p class="leave-privacy-note">Submit a request using the form above. Request records are visible only to the regional administrator and HR.</p>';
+    return;
+  }
   const rows = data.map(item => [
     escapeHtml(item.employee || currentUser.name), escapeHtml(item.leave_type), `${escapeHtml(item.start_date)} – ${escapeHtml(item.end_date)}`,
     escapeHtml(item.reason), `<span class="status-pill ${escapeHtml(item.status)}">${escapeHtml(item.status)}</span>`,
     escapeHtml(item.review_note || '—'),
-    `${canReview && item.status === 'pending' ? `${actionButtonsHtml(item.id, 'approve-leave', 'Approve')}${actionButtonsHtml(item.id, 'reject-leave', 'Reject')}` : ''}${currentUser?.roleCode === 'admin' || item.user_id === currentUser?.id && item.status === 'pending' ? actionButtonsHtml(item.id, 'delete-leave', 'Delete') : ''}`
+    `${canReview && item.status === 'pending' ? `${actionButtonsHtml(item.id, 'approve-leave', 'Approve')}${actionButtonsHtml(item.id, 'reject-leave', 'Reject')}` : ''}${canReview ? actionButtonsHtml(item.id, 'delete-leave', 'Delete') : ''}`
   ]);
   leaveList.innerHTML = '';
   leaveList.appendChild(createTable(['Employee', 'Leave Type', 'Dates', 'Reason', 'Status', 'Review Note', 'Actions'], rows));
@@ -1240,7 +1289,10 @@ async function loadViewData(viewName) {
   try {
     if (viewName === 'notices') renderNotices(await getJson('/api/notices'));
     if (viewName === 'users') await loadUsers();
-    if (viewName === 'leave') renderLeave(await getJson('/api/leave'));
+    if (viewName === 'leave') {
+      if (['admin', 'hr'].includes(currentUser?.roleCode)) renderLeave(await getJson('/api/leave'));
+      else renderLeave([]);
+    }
     if (viewName === 'training') renderTraining(await getJson('/api/training'));
     if (viewName === 'performance') renderPerformance(await getJson('/api/performance'));
     if (viewName === 'finance') renderFinance(await getJson('/api/finance'));
@@ -1285,7 +1337,7 @@ function renderReports(data) {
     <div class="report-card"><h3>Vehicles Active</h3><p>${data.vehiclesActive}</p></div>
     <div class="report-card"><h3>Delayed Tasks</h3><p>${data.delayed}</p></div>
     <div class="report-card"><h3>Notifications</h3><p>${data.notificationCount}</p></div>
-    <div class="report-card"><h3>Pending Leave</h3><p>${data.pendingLeave || 0}</p></div>
+    ${data.pendingLeave !== undefined ? `<div class="report-card"><h3>Pending Leave</h3><p>${data.pendingLeave}</p></div>` : ''}
     <div class="report-card"><h3>Upcoming Training</h3><p>${data.trainingUpcoming || 0}</p></div>
     <div class="report-card"><h3>Open Goals</h3><p>${data.performanceGoals || 0}</p></div>
   `;
@@ -1397,8 +1449,62 @@ document.getElementById('leaveForm').addEventListener('submit', async event => {
     });
     form.reset();
     moduleNotice(document.getElementById('leaveFormMessage'), 'Leave request submitted.', 'success');
-    await loadViewData('leave');
+    if (['admin', 'hr'].includes(currentUser?.roleCode)) await loadViewData('leave');
   } catch (error) { moduleNotice(document.getElementById('leaveFormMessage'), error.message); }
+});
+
+const loginArtworkInput = document.getElementById('loginArtworkInput');
+loginArtworkInput.addEventListener('change', () => {
+  const file = loginArtworkInput.files?.[0];
+  const message = document.getElementById('loginArtworkMessage');
+  if (!file) return;
+  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+    moduleNotice(message, 'Choose a PNG, JPEG, or WebP image.');
+    loginArtworkInput.value = '';
+    return;
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    moduleNotice(message, 'Login picture must be 2 MB or smaller.');
+    loginArtworkInput.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.addEventListener('load', () => {
+    if (typeof reader.result !== 'string') {
+      moduleNotice(message, 'Unable to read this image.');
+      return;
+    }
+    loginArtworkData = reader.result;
+    renderLoginArtwork(loginArtworkData);
+    moduleNotice(message, 'Picture preview ready. Save to publish it.', 'success');
+  });
+  reader.addEventListener('error', () => moduleNotice(message, 'Unable to read this image.'));
+  reader.readAsDataURL(file);
+});
+
+document.getElementById('saveLoginArtworkBtn').addEventListener('click', async () => {
+  const message = document.getElementById('loginArtworkMessage');
+  if (!loginArtworkData) return moduleNotice(message, 'Choose a picture before saving.');
+  try {
+    await fetchJson('/api/system/login-artwork', 'PUT', { image: loginArtworkData });
+    moduleNotice(message, 'Login picture updated.', 'success');
+  } catch (error) {
+    moduleNotice(message, error.message);
+  }
+});
+
+document.getElementById('removeLoginArtworkBtn').addEventListener('click', async () => {
+  const message = document.getElementById('loginArtworkMessage');
+  if (!confirm('Remove the custom login page picture?')) return;
+  try {
+    await deleteJson('/api/system/login-artwork');
+    loginArtworkData = null;
+    loginArtworkInput.value = '';
+    renderLoginArtwork(null);
+    moduleNotice(message, 'Custom login picture removed.', 'success');
+  } catch (error) {
+    moduleNotice(message, error.message);
+  }
 });
 
 newTrainingBtn.addEventListener('click', () => showTrainingEditor());
@@ -1781,6 +1887,7 @@ document.getElementById('submitResetBtn').addEventListener('click', async () => 
 });
 
 async function initialize() {
+  try { await loadLoginArtwork(); } catch (error) { console.warn(error.message); }
   try {
     currentUser = await getJson('/api/auth/me');
     renderProfileIdentity(currentUser);

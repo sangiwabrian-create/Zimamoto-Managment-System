@@ -4,6 +4,8 @@ A Tanzania Fire and Rescue management prototype with role-based dashboards, stat
 
 ## Features
 - Login page branded for Zimamoto Mbeya Fire & Rescue.
+- Responsive split-panel login page; regional admins and system managers can publish or remove its image from System Settings.
+- Staff can set an availability status and message on their profile; only administrators and system managers can see the staff status directory.
 - Persistent SQLite storage for roles, stations, tasks, incidents, vehicles, equipment, shifts, notifications, and feedback.
 - Role-based dashboard content for Kamanda wa Mkoa, Kamanda wa Kituo, Mkuu wa Zamu, Askari Zimamoto, Fundi Magari, Afisa wa Vifaa.
 - Dashboard summary of stations, tasks, incidents, vehicles, equipment, shifts, and notifications.
@@ -13,6 +15,7 @@ A Tanzania Fire and Rescue management prototype with role-based dashboards, stat
 - Shift management and feedback submission.
 - User administration with server-enforced role permissions and account deactivation.
 - Notice board, leave requests and approvals, training management, and personal performance goals.
+- Any signed-in user can submit a leave request; only the regional administrator and HR can list, review, or delete requests. Other roles see no leave records or pending-request totals.
 - Dedicated Human Resources, Accountant, and Fire Marshal roles with role-specific workflows for staff/leave/training, financial ledger verification, and fire-safety inspections.
 - A System Manager role with full administrative access alongside the existing regional administrator role.
 - Per-user dark/light theme, language, and notification preferences.
